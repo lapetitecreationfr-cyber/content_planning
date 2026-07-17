@@ -307,6 +307,7 @@ tr:hover td{background:rgba(234,229,219,0.3);}
 
       <!-- KANBAN -->
       <div id="page-kanban" class="page">
+        <input type="file" id="contenus-csv-input" accept=".csv,text/csv" style="display:none" onchange="importContenusCSV(this)">
         <div class="kanban" id="kanban-board"></div>
       </div>
 
@@ -325,6 +326,8 @@ tr:hover td{background:rgba(234,229,219,0.3);}
 
       <!-- INSPIRATION -->
       <div id="page-inspiration" class="page">
+        <input type="file" id="inspo-csv-input" accept=".csv,text/csv" style="display:none" onchange="importInspoCSV(this)">
+        <input type="file" id="idees-csv-input" accept=".csv,text/csv" style="display:none" onchange="importIdeesCSV(this)">
         <div class="view-tabs" id="inspo-tabs">
           <button class="vtab active" onclick="switchInspoTab('comptes')">Comptes d'inspiration</button>
           <button class="vtab" onclick="switchInspoTab('idees')">Banque d'idées</button>
@@ -538,9 +541,9 @@ function renderAll(){renderDashboard();renderCalendrier();renderKanban();renderL
 const PAGES={
   'dashboard':{title:'Vue d\'ensemble 🌸',actions:`<button class="btn btn-primary btn-sm" onclick="openModalContenu()">+ Nouveau contenu</button>`},
   'calendrier':{title:'Calendrier',actions:`<button class="btn btn-primary btn-sm" onclick="openModalContenu()">+ Nouveau contenu</button>`},
-  'kanban':{title:'Production 🎬',actions:`<button class="btn btn-primary btn-sm" onclick="openModalContenu()">+ Nouveau contenu</button>`},
+  'kanban':{title:'Production 🎬',actions:`<button class="btn btn-primary btn-sm" onclick="openModalContenu()">+ Nouveau contenu</button><button class="btn btn-outline btn-sm" onclick="document.getElementById('contenus-csv-input').click()">📥 Importer CSV</button><button class="btn btn-outline btn-sm" onclick="exportContenusCSV()">📤 Exporter</button><button class="btn btn-outline btn-sm" onclick="downloadContenusTemplate()">📄 Modèle</button>`},
   'liste':{title:'Tous les contenus',actions:`<button class="btn btn-primary btn-sm" onclick="openModalContenu()">+ Nouveau contenu</button>`},
-  'inspiration':{title:'Inspiration & Idées 💡',actions:`<button class="btn btn-primary btn-sm" onclick="openModal('modal-inspo','new')">+ Compte</button><button class="btn btn-outline btn-sm" onclick="openModal('modal-idee','new')">+ Idée</button>`},
+  'inspiration':{title:'Inspiration & Idées 💡',actions:`<span id="inspo-actions" style="display:flex;gap:8px"></span>`},
   'hooks':{title:'Banque de hooks 🎣',actions:`<button class="btn btn-primary btn-sm" onclick="openModal('modal-hook','new')">+ Hook</button><button class="btn btn-outline btn-sm" onclick="document.getElementById('hooks-csv-input').click()">📥 Importer CSV</button><button class="btn btn-outline btn-sm" onclick="exportHooksCSV()">📤 Exporter</button><button class="btn btn-outline btn-sm" onclick="downloadHooksTemplate()">📄 Modèle</button>`},
   'stats':{title:'Statistiques 📊',actions:''},
   'piliers':{title:'Piliers & stratégie ⚙️',actions:`<button class="btn btn-primary btn-sm" onclick="openModal('modal-pilier','new')">+ Pilier</button>`}
@@ -553,6 +556,7 @@ function goPage(id){
   document.querySelectorAll('.nav-item')[keys.indexOf(id)].classList.add('active');
   document.getElementById('page-title').textContent=PAGES[id].title;
   document.getElementById('topbar-actions').innerHTML=PAGES[id].actions||'';
+  if(id==='inspiration')updateInspoActions();
 }
 
 // ── HELPERS ──
@@ -592,6 +596,48 @@ function csvDownload(rows,filename){
   const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8;'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;
   document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(a.href);
+}
+function findCol(head,aliases){
+  for(const a of aliases){const i=head.findIndex(h=>h===a);if(i>=0)return i;}
+  for(const a of aliases){const i=head.findIndex(h=>h.includes(a));if(i>=0)return i;}
+  return -1;
+}
+function parseDateCSV(v){
+  v=(v||'').trim();if(!v)return '';
+  let m=v.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if(m)return `${m[1]}-${String(m[2]).padStart(2,'0')}-${String(m[3]).padStart(2,'0')}`;
+  m=v.match(/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{4})/);
+  if(m)return `${m[3]}-${String(m[2]).padStart(2,'0')}-${String(m[1]).padStart(2,'0')}`;
+  return '';
+}
+// Lit un CSV et appelle cb(rows, head) ; gère erreurs + reset de l'input
+function readCSV(input,cb){
+  const f=input.files[0];
+  if(!f)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const rows=parseCSV(e.target.result);
+      input.value='';
+      if(rows.length<2){toast('CSV vide ou sans données');return;}
+      cb(rows.slice(1),rows[0].map(h=>norm(h)));
+    }catch(err){console.error(err);toast('Erreur de lecture du CSV');input.value='';}
+  };
+  reader.readAsText(f,'UTF-8');
+}
+function importReport(added,dup,vides){
+  if(!added){toast(`Rien importé${dup?` · ${dup} doublon(s)`:''}`);return false;}
+  toast(`${added} ligne(s) importée(s)${dup?` · ${dup} doublon(s) ignoré(s)`:''}${vides?` · ${vides} vide(s)`:''} ✨`);
+  return true;
+}
+function resolveType(v){
+  const n=norm(v);
+  const t=['Reel','Story','Carrousel','Post'].find(x=>norm(x)===n||n.startsWith(norm(x).slice(0,4)));
+  return t||'Reel';
+}
+function resolveStatut(v){
+  const n=norm(v);
+  return STATUTS.find(s=>norm(s)===n)||'Pas commencé';
 }
 
 // ── DASHBOARD ──
@@ -685,6 +731,61 @@ function renderKanban(){
 
 // ── LISTE ──
 let listeFilter='tous';
+
+function importContenusCSV(input){
+  readCSV(input,(rows,head)=>{
+    const iTitre=findCol(head,['titre','concept','hook','texte']);
+    if(iTitre<0){toast('Colonne "titre" introuvable — utilise le modèle 📄');return;}
+    const iType=findCol(head,['type']),iPilier=findCol(head,['pilier']),iVisual=findCol(head,['visuel','visual']),
+          iDate=findCol(head,['date']),iStatut=findCol(head,['statut','status']),iNotes=findCol(head,['notes']),
+          iPlan=findCol(head,['plan','photos','sequences']),
+          iVues=findCol(head,['vues']),iLikes=findCol(head,['likes']),iComs=findCol(head,['commentaires']),
+          iSaves=findCol(head,['sauvegardes','saves']),iShares=findCol(head,['partages']),iPortee=findCol(head,['portee']);
+    const existants=new Set(D.contenus.map(c=>norm(c.titre)+'|'+(c.date||'')));
+    let added=0,dup=0,vides=0;
+    rows.forEach((r,n)=>{
+      const titre=(r[iTitre]||'').trim();
+      if(!titre){vides++;return;}
+      const date=iDate>=0?parseDateCSV(r[iDate]):'';
+      const key=norm(titre)+'|'+date;
+      if(existants.has(key)){dup++;return;}
+      existants.add(key);
+      const plan=iPlan>=0?(r[iPlan]||'').split(/\||\n/).map(s=>s.trim()).filter(Boolean):[];
+      D.contenus.push({
+        id:'C'+Date.now().toString().slice(-6)+n,
+        type:iType>=0?resolveType(r[iType]):'Reel',
+        pilier:resolvePilier(iPilier>=0?r[iPilier]:''),
+        titre:titre,
+        visual_hook:iVisual>=0?(r[iVisual]||'').trim():'',
+        date:date||new Date().toISOString().split('T')[0],
+        statut:iStatut>=0?resolveStatut(r[iStatut]):'Pas commencé',
+        notes:iNotes>=0?(r[iNotes]||'').trim():'',
+        shotlist:plan.map(t=>({texte:t,done:false})),
+        vues:iVues>=0?(parseInt(r[iVues])||0):0,
+        likes:iLikes>=0?(parseInt(r[iLikes])||0):0,
+        commentaires:iComs>=0?(parseInt(r[iComs])||0):0,
+        sauvegardes:iSaves>=0?(parseInt(r[iSaves])||0):0,
+        partages:iShares>=0?(parseInt(r[iShares])||0):0,
+        portee:iPortee>=0?(parseInt(r[iPortee])||0):0
+      });
+      added++;
+    });
+    if(importReport(added,dup,vides))saveAll().then(()=>renderAll());
+  });
+}
+function exportContenusCSV(){
+  const rows=[['type','titre','pilier','visuel','date','statut','notes','plan','vues','likes','commentaires','sauvegardes','partages','portee']];
+  sortedContenus().forEach(c=>rows.push([c.type,c.titre,getPilier(c.pilier).nom,c.visual_hook||'',c.date||'',c.statut,c.notes||'',
+    (c.shotlist||[]).map(s=>s.texte).join(' | '),c.vues||0,c.likes||0,c.commentaires||0,c.sauvegardes||0,c.partages||0,c.portee||0]));
+  csvDownload(rows,'contenus.csv');
+}
+function downloadContenusTemplate(){
+  csvDownload([
+    ['type','titre','pilier','visuel','date','statut','notes','plan'],
+    ['Reel',"Le matin où j'ai arrêté de courir",'Voix','B-roll mains, lumière douce','2026-08-03','Pas commencé','Caption intime','Plan 1 — réveil | Plan 2 — café | Plan 3 — atelier'],
+    ['Carrousel','5 objets qui me réconfortent','Ambiance','Flat lay lin beige','2026-08-06','Prepping','','Photo 1 — bougie | Photo 2 — tasse | Photo 3 — plaid']
+  ],'modele_contenus.csv');
+}
 function renderListe(){
   const filters=['tous','Reel','Story','Carrousel','Post'];
   document.getElementById('liste-filters').innerHTML=filters.map(f=>`<button class="stat-filter-btn ${listeFilter===f?'active':''}" onclick="setListeFilter('${f}')">${f==='tous'?'Tous':f}</button>`).join('');
@@ -717,6 +818,14 @@ function switchInspoTab(t){
   document.querySelectorAll('#inspo-tabs .vtab').forEach((b,i)=>b.classList.toggle('active',(i===0&&t==='comptes')||(i===1&&t==='idees')));
   document.getElementById('inspo-tab-comptes').style.display=t==='comptes'?'':'none';
   document.getElementById('inspo-tab-idees').style.display=t==='idees'?'':'none';
+  updateInspoActions();
+}
+function updateInspoActions(){
+  const el=document.getElementById('inspo-actions');
+  if(!el)return;
+  el.innerHTML=inspoTab==='comptes'
+    ?`<button class="btn btn-primary btn-sm" onclick="openModal('modal-inspo','new')">+ Compte</button><button class="btn btn-outline btn-sm" onclick="document.getElementById('inspo-csv-input').click()">📥 Importer CSV</button><button class="btn btn-outline btn-sm" onclick="exportInspoCSV()">📤 Exporter</button><button class="btn btn-outline btn-sm" onclick="downloadInspoTemplate()">📄 Modèle</button>`
+    :`<button class="btn btn-primary btn-sm" onclick="openModal('modal-idee','new')">+ Idée</button><button class="btn btn-outline btn-sm" onclick="document.getElementById('idees-csv-input').click()">📥 Importer CSV</button><button class="btn btn-outline btn-sm" onclick="exportIdeesCSV()">📤 Exporter</button><button class="btn btn-outline btn-sm" onclick="downloadIdeesTemplate()">📄 Modèle</button>`;
 }
 function renderInspo(){
   document.getElementById('inspo-grid').innerHTML=D.inspirations.map(i=>`
@@ -750,6 +859,86 @@ function renderInspo(){
 
 // ── HOOKS ──
 let hooksFilter='tous';
+
+function importInspoCSV(input){
+  readCSV(input,(rows,head)=>{
+    const iCompte=findCol(head,['compte','pseudo','instagram']);
+    if(iCompte<0){toast('Colonne "compte" introuvable — utilise le modèle 📄');return;}
+    const iNiche=findCol(head,['niche']),iLien=findCol(head,['lien','url']),
+          iLove=findCol(head,["ce que j'aime",'ce_que_jaime','jaime','love']),iNotes=findCol(head,['notes']);
+    const existants=new Set(D.inspirations.map(i=>norm(i.compte)));
+    let added=0,dup=0,vides=0;
+    rows.forEach((r,n)=>{
+      let compte=(r[iCompte]||'').trim();
+      if(!compte){vides++;return;}
+      if(!compte.startsWith('@')&&!compte.startsWith('http'))compte='@'+compte;
+      if(existants.has(norm(compte))){dup++;return;}
+      existants.add(norm(compte));
+      D.inspirations.push({
+        id:'I'+Date.now().toString().slice(-5)+n,
+        compte:compte,
+        niche:iNiche>=0?(r[iNiche]||'').trim():'',
+        lien:iLien>=0?(r[iLien]||'').trim():'',
+        ce_que_jaime:iLove>=0?(r[iLove]||'').trim():'',
+        notes:iNotes>=0?(r[iNotes]||'').trim():''
+      });
+      added++;
+    });
+    if(importReport(added,dup,vides))saveAll().then(()=>renderInspo());
+  });
+}
+function exportInspoCSV(){
+  const rows=[['compte','niche','lien',"ce que j'aime",'notes']];
+  D.inspirations.forEach(i=>rows.push([i.compte,i.niche||'',i.lien||'',i.ce_que_jaime||'',i.notes||'']));
+  csvDownload(rows,'comptes_inspiration.csv');
+}
+function downloadInspoTemplate(){
+  csvDownload([
+    ['compte','niche','lien',"ce que j'aime",'notes'],
+    ['@slowliving.fr','Slow living','https://instagram.com/slowliving.fr','Esthétique épurée, captions sincères',''],
+    ['@julie.mrgn','Artisanat','https://instagram.com/julie.mrgn','B-rolls sensoriels, montage lent','']
+  ],'modele_comptes_inspiration.csv');
+}
+
+function importIdeesCSV(input){
+  readCSV(input,(rows,head)=>{
+    const iTitre=findCol(head,['titre','concept','idee']);
+    if(iTitre<0){toast('Colonne "titre" introuvable — utilise le modèle 📄');return;}
+    const iType=findCol(head,['type']),iPilier=findCol(head,['pilier']),
+          iHook=findCol(head,['hook','visuel']),iLien=findCol(head,['lien','inspiration','url']),iNotes=findCol(head,['notes']);
+    const existants=new Set(D.idees.map(i=>norm(i.titre)));
+    let added=0,dup=0,vides=0;
+    rows.forEach((r,n)=>{
+      const titre=(r[iTitre]||'').trim();
+      if(!titre){vides++;return;}
+      if(existants.has(norm(titre))){dup++;return;}
+      existants.add(norm(titre));
+      D.idees.push({
+        id:'ID'+Date.now().toString().slice(-5)+n,
+        titre:titre,
+        type:iType>=0?resolveType(r[iType]):'Reel',
+        pilier:resolvePilier(iPilier>=0?r[iPilier]:''),
+        hook:iHook>=0?(r[iHook]||'').trim():'',
+        lien:iLien>=0?(r[iLien]||'').trim():'',
+        notes:iNotes>=0?(r[iNotes]||'').trim():''
+      });
+      added++;
+    });
+    if(importReport(added,dup,vides))saveAll().then(()=>renderInspo());
+  });
+}
+function exportIdeesCSV(){
+  const rows=[['titre','type','pilier','hook','lien','notes']];
+  D.idees.forEach(i=>rows.push([i.titre,i.type,getPilier(i.pilier).nom,i.hook||'',i.lien||'',i.notes||'']));
+  csvDownload(rows,'banque_idees.csv');
+}
+function downloadIdeesTemplate(){
+  csvDownload([
+    ['titre','type','pilier','hook','lien','notes'],
+    ['Le rituel du dimanche soir','Reel','Ambiance','B-roll bougie + thé','','Musique lente'],
+    ['3 choses que je fais autrement','Carrousel','Voix','Texte overlay sur fond lin','','']
+  ],'modele_idees.csv');
+}
 function renderHooks(){
   const patterns=[...new Set(D.hooks_banque.map(h=>h.pattern))];
   const filters=['tous',...patterns];
