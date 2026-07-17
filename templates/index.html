@@ -199,6 +199,19 @@ tr:hover td{background:rgba(234,229,219,0.3);}
 .empty-state .es-emoji{font-size:36px;margin-bottom:8px;}
 .empty-state p{font-size:13px;font-style:italic;}
 
+/* ── SHOT LIST ── */
+.shot-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
+.shot-num{font-family:'Cormorant Garamond',serif;font-size:16px;color:var(--text-hint);width:16px;text-align:center;flex-shrink:0;}
+.shot-check{width:17px;height:17px;flex-shrink:0;cursor:pointer;accent-color:var(--sage);}
+.shot-input{flex:1;padding:6px 10px;border:1.5px solid var(--border-md);border-radius:var(--radius);font-family:'Nunito',sans-serif;font-size:13px;background:var(--cream);outline:none;transition:border-color .15s;}
+.shot-input:focus{border-color:var(--rose);background:var(--white);}
+.shot-input.done{text-decoration:line-through;color:var(--text-hint);background:var(--parchment);}
+.shot-del{background:var(--rose-light);color:var(--rose);border:1px solid var(--rose-mid);border-radius:8px;width:26px;height:26px;flex-shrink:0;cursor:pointer;font-size:11px;font-family:'Nunito',sans-serif;}
+.shot-progress{height:5px;background:var(--parchment);border-radius:3px;overflow:hidden;margin-bottom:12px;}
+.shot-progress>div{height:100%;background:var(--sage);border-radius:3px;transition:width .3s;}
+.mini-prog{font-size:10px;font-weight:700;color:var(--sage);white-space:nowrap;}
+.mini-prog.todo{color:var(--text-hint);}
+
 /* ── MOBILE RESPONSIVE ── */
 @media (max-width: 768px) {
   .sidebar{width:100%;height:auto;position:fixed;bottom:0;top:auto;left:0;right:0;border-right:none;border-top:1px solid var(--border);flex-direction:row;z-index:20;overflow-x:auto;overflow-y:hidden;}
@@ -326,6 +339,7 @@ tr:hover td{background:rgba(234,229,219,0.3);}
 
       <!-- HOOKS -->
       <div id="page-hooks" class="page">
+        <input type="file" id="hooks-csv-input" accept=".csv,text/csv" style="display:none" onchange="importHooksCSV(this)">
         <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap" id="hooks-filters"></div>
         <div class="hooks-grid" id="hooks-grid"></div>
       </div>
@@ -380,11 +394,12 @@ tr:hover td{background:rgba(234,229,219,0.3);}
     <h3 id="mc-title">Nouveau contenu</h3>
     <div class="modal-tabs">
       <button class="mtab active" onclick="switchMTab(0)">Infos</button>
-      <button class="mtab" onclick="switchMTab(1)">Stats</button>
+      <button class="mtab" id="mtab-btn-plan" onclick="switchMTab(1)">🎬 Plan</button>
+      <button class="mtab" onclick="switchMTab(2)">Stats</button>
     </div>
     <div id="mtab-infos">
       <div class="form-row">
-        <div class="form-group"><label>Type</label><select id="c-type"><option>Reel</option><option>Story</option><option>Carrousel</option><option>Post</option></select></div>
+        <div class="form-group"><label>Type</label><select id="c-type" onchange="renderShots()"><option>Reel</option><option>Story</option><option>Carrousel</option><option>Post</option></select></div>
         <div class="form-group"><label>Pilier</label><select id="c-pilier"></select></div>
       </div>
       <div class="form-group"><label>Titre / Hook</label><textarea id="c-titre" rows="2"></textarea></div>
@@ -403,6 +418,12 @@ tr:hover td{background:rgba(234,229,219,0.3);}
         </div>
       </div>
       <div class="form-group"><label>Notes</label><textarea id="c-notes" rows="2" placeholder="Idées de caption, références..."></textarea></div>
+    </div>
+    <div id="mtab-plan" style="display:none">
+      <div style="font-size:12px;color:var(--text-muted);font-style:italic;margin-bottom:10px" id="plan-hint"></div>
+      <div class="shot-progress"><div id="plan-bar" style="width:0%"></div></div>
+      <div id="plan-list"></div>
+      <button class="kanban-add" style="margin-top:6px" onclick="addShot()" id="plan-add-btn">+ Ajouter</button>
     </div>
     <div id="mtab-stats" style="display:none">
       <div class="stat-input-grid">
@@ -520,7 +541,7 @@ const PAGES={
   'kanban':{title:'Production 🎬',actions:`<button class="btn btn-primary btn-sm" onclick="openModalContenu()">+ Nouveau contenu</button>`},
   'liste':{title:'Tous les contenus',actions:`<button class="btn btn-primary btn-sm" onclick="openModalContenu()">+ Nouveau contenu</button>`},
   'inspiration':{title:'Inspiration & Idées 💡',actions:`<button class="btn btn-primary btn-sm" onclick="openModal('modal-inspo','new')">+ Compte</button><button class="btn btn-outline btn-sm" onclick="openModal('modal-idee','new')">+ Idée</button>`},
-  'hooks':{title:'Banque de hooks 🎣',actions:`<button class="btn btn-primary btn-sm" onclick="openModal('modal-hook','new')">+ Hook</button>`},
+  'hooks':{title:'Banque de hooks 🎣',actions:`<button class="btn btn-primary btn-sm" onclick="openModal('modal-hook','new')">+ Hook</button><button class="btn btn-outline btn-sm" onclick="document.getElementById('hooks-csv-input').click()">📥 Importer CSV</button><button class="btn btn-outline btn-sm" onclick="exportHooksCSV()">📤 Exporter</button><button class="btn btn-outline btn-sm" onclick="downloadHooksTemplate()">📄 Modèle</button>`},
   'stats':{title:'Statistiques 📊',actions:''},
   'piliers':{title:'Piliers & stratégie ⚙️',actions:`<button class="btn btn-primary btn-sm" onclick="openModal('modal-pilier','new')">+ Pilier</button>`}
 };
@@ -542,6 +563,36 @@ function typeBadge(t){const m={'Reel':'badge-reel','Story':'badge-story','Carrou
 function statutBadge(s){const m={'Pas commencé':'stat-pasc','Prepping':'stat-prepping','Filming':'stat-filming','Edited':'stat-edited','Finalized':'stat-finalized','Posting':'stat-posting'};return `<span class="badge ${m[s]||'stat-pasc'}">${s}</span>`;}
 function sortedContenus(){return [...D.contenus].sort((a,b)=>new Date(a.date)-new Date(b.date));}
 function numFmt(n){if(!n)return '—';if(n>=1000)return (n/1000).toFixed(1)+'k';return n;}
+function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function norm(s){return String(s==null?'':s).trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');}
+
+// ── CSV UTILS ──
+function parseCSV(text){
+  if(text.charCodeAt(0)===0xFEFF)text=text.slice(1);
+  const first=text.split(/\r?\n/)[0]||'';
+  const delim=(first.split(';').length>first.split(',').length)?';':',';
+  const rows=[];let row=[],cur='',q=false;
+  for(let i=0;i<text.length;i++){
+    const ch=text[i];
+    if(q){
+      if(ch==='"'){ if(text[i+1]==='"'){cur+='"';i++;} else q=false; }
+      else cur+=ch;
+    } else {
+      if(ch==='"')q=true;
+      else if(ch===delim){row.push(cur);cur='';}
+      else if(ch==='\n'){row.push(cur);cur='';rows.push(row);row=[];}
+      else if(ch!=='\r')cur+=ch;
+    }
+  }
+  if(cur.length||row.length){row.push(cur);rows.push(row);}
+  return rows.filter(r=>r.some(c=>c.trim()!==''));
+}
+function csvDownload(rows,filename){
+  const csv=rows.map(r=>r.map(c=>`"${String(c==null?'':c).replace(/"/g,'""')}"`).join(';')).join('\r\n');
+  const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8;'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;
+  document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(a.href);
+}
 
 // ── DASHBOARD ──
 function renderDashboard(){
@@ -625,7 +676,7 @@ function renderKanban(){
       ${cards.map(c=>{const p=getPilier(c.pilier);return `<div class="kanban-card" onclick="openModalContenu('${c.id}')">
         <div class="kanban-card-type" style="color:${p.couleur}">${p.emoji} ${p.nom}</div>
         <div class="kanban-card-titre">${c.titre}</div>
-        <div class="kanban-card-footer">${typeBadge(c.type)}<span class="kanban-card-date">${fmtDate(c.date)}</span></div>
+        <div class="kanban-card-footer">${typeBadge(c.type)}<span style="display:flex;gap:6px;align-items:center">${shotProgress(c)}<span class="kanban-card-date">${fmtDate(c.date)}</span></span></div>
       </div>`;}).join('')}
       <button class="kanban-add" onclick="openModalContenuStatut('${s}')">+ Ajouter</button>
     </div>`;
@@ -641,7 +692,7 @@ function renderListe(){
   document.getElementById('liste-body').innerHTML=list.map(c=>{
     const p=getPilier(c.pilier);
     return `<tr>
-      <td>${typeBadge(c.type)}</td>
+      <td><div>${typeBadge(c.type)}</div>${shotProgress(c)?`<div style="margin-top:4px">${shotProgress(c)}</div>`:''}</td>
       <td style="max-width:300px"><div style="font-weight:600;font-size:13px">${c.titre.substring(0,60)}${c.titre.length>60?'...':''}</div>${c.visual_hook?`<div style="font-size:11px;color:var(--text-hint);margin-top:2px;font-style:italic">${c.visual_hook}</div>`:''}</td>
       <td><span class="badge" style="background:rgba(${hexToRgb(p.couleur)},0.2);color:var(--text-muted)">${p.emoji} ${p.nom}</span></td>
       <td style="white-space:nowrap">${fmtDate(c.date)}</td>
@@ -723,6 +774,68 @@ function renderHooks(){
 }
 function setHooksFilter(f){hooksFilter=f;renderHooks();}
 function setHookScore(id,score){const h=D.hooks_banque.find(x=>x.id===id);if(h)h.score=score;saveAll().then(()=>renderHooks());}
+
+function resolvePilier(val){
+  const v=norm(val);
+  if(!v)return D.piliers[0]?D.piliers[0].id:'';
+  let p=D.piliers.find(x=>norm(x.id)===v)||D.piliers.find(x=>norm(x.nom)===v)||D.piliers.find(x=>norm(x.nom).startsWith(v));
+  return p?p.id:(D.piliers[0]?D.piliers[0].id:'');
+}
+function importHooksCSV(input){
+  const f=input.files[0];
+  if(!f)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const rows=parseCSV(e.target.result);
+      if(rows.length<2){toast('CSV vide ou sans données');input.value='';return;}
+      const head=rows[0].map(h=>norm(h));
+      const iTexte=head.findIndex(h=>h.includes('texte')||h.includes('hook')||h.includes('accroche'));
+      const iPattern=head.findIndex(h=>h.includes('pattern')||h.includes('structure'));
+      const iPilier=head.findIndex(h=>h.includes('pilier'));
+      const iScore=head.findIndex(h=>h.includes('score')||h.includes('note'));
+      if(iTexte<0){toast('Colonne "texte" introuvable — utilise le modèle 📄');input.value='';return;}
+      const existants=new Set(D.hooks_banque.map(h=>norm(h.texte)));
+      let added=0,dup=0,vides=0;
+      rows.slice(1).forEach((r,n)=>{
+        const texte=(r[iTexte]||'').trim();
+        if(!texte){vides++;return;}
+        if(existants.has(norm(texte))){dup++;return;}
+        existants.add(norm(texte));
+        D.hooks_banque.push({
+          id:'HK'+Date.now().toString().slice(-5)+n,
+          pattern:(iPattern>=0?(r[iPattern]||'').trim():'')||'Import',
+          texte:texte,
+          pilier:resolvePilier(iPilier>=0?r[iPilier]:''),
+          score:iScore>=0?(parseInt(r[iScore])||0):0
+        });
+        added++;
+      });
+      input.value='';
+      if(!added){toast(`Rien importé · ${dup} doublon(s)`);return;}
+      saveAll().then(()=>{
+        renderHooks();
+        toast(`${added} hook(s) importé(s)${dup?` · ${dup} doublon(s) ignoré(s)`:''}${vides?` · ${vides} ligne(s) vide(s)`:''} ✨`);
+      });
+    }catch(err){
+      console.error(err);toast('Erreur de lecture du CSV');input.value='';
+    }
+  };
+  reader.readAsText(f,'UTF-8');
+}
+function exportHooksCSV(){
+  const rows=[['pattern','texte','pilier','score']];
+  D.hooks_banque.forEach(h=>rows.push([h.pattern||'',h.texte||'',getPilier(h.pilier).nom,h.score||0]));
+  csvDownload(rows,'hooks_banque.csv');
+}
+function downloadHooksTemplate(){
+  csvDownload([
+    ['pattern','texte','pilier','score'],
+    ['POV',"POV : tu réalises que tu n'as pas besoin de plus, juste de mieux",'Voix','0'],
+    ["J'ai arrêté","J'ai arrêté d'optimiser ma vie. Voici ce qui s'est passé.",'Voix','0'],
+    ['Arrête de scroller','Arrête de scroller 5 secondes. Regarde ça.','Atelier','0']
+  ],'modele_hooks.csv');
+}
 
 // ── STATS ──
 let statFilter='tous';
@@ -839,6 +952,7 @@ function openModalContenu(id,datePreset){
     document.getElementById('s-shares').value=c.partages||0;
     document.getElementById('s-portee').value=c.portee||0;
     document.getElementById('c-edit-id').value=id;
+    shots=(c.shotlist||[]).map(s=>({texte:s.texte||'',done:!!s.done}));
   } else {
     document.getElementById('mc-title').textContent='Nouveau contenu 🌸';
     ['c-titre','c-visual','c-notes'].forEach(f=>document.getElementById(f).value='');
@@ -846,7 +960,9 @@ function openModalContenu(id,datePreset){
     document.getElementById('c-statut').value='Pas commencé';
     ['s-vues','s-likes','s-coms','s-saves','s-shares','s-portee'].forEach(f=>document.getElementById(f).value=0);
     document.getElementById('c-edit-id').value='';
+    shots=[];
   }
+  renderShots();
   document.getElementById('modal-contenu').classList.add('open');
 }
 function openModalContenuStatut(statut){openModalContenu();document.getElementById('c-statut').value=statut;}
@@ -856,7 +972,52 @@ function switchMTab(i){
   mTabActive=i;
   document.querySelectorAll('.mtab').forEach((b,idx)=>b.classList.toggle('active',idx===i));
   document.getElementById('mtab-infos').style.display=i===0?'':'none';
-  document.getElementById('mtab-stats').style.display=i===1?'':'none';
+  document.getElementById('mtab-plan').style.display=i===1?'':'none';
+  document.getElementById('mtab-stats').style.display=i===2?'':'none';
+}
+
+// ── PLAN / SHOT LIST ──
+let shots=[];
+function planConfig(){
+  const t=document.getElementById('c-type').value;
+  if(t==='Carrousel')return{tab:'📸 Photos',add:'+ Ajouter une photo',ph:'ex: Flat lay matières, lumière du matin',hint:'Une ligne = une slide du carrousel. Coche au fur et à mesure du shooting.'};
+  if(t==='Reel')return{tab:'🎬 Plans',add:'+ Ajouter un plan',ph:'ex: B-roll mains qui travaillent, gros plan',hint:'Une ligne = un plan à filmer. Coche au fur et à mesure du tournage.'};
+  if(t==='Story')return{tab:'📖 Séquences',add:'+ Ajouter une séquence',ph:'ex: Story 1 — hook texte sur fond atelier',hint:'Une ligne = une story de la séquence.'};
+  return{tab:'🖼️ Visuels',add:'+ Ajouter un visuel',ph:'ex: Photo produit sur lin beige',hint:'Liste les visuels à préparer pour ce post.'};
+}
+function updatePlanLabels(){
+  const cfg=planConfig();
+  const done=shots.filter(s=>s.done).length;
+  document.getElementById('mtab-btn-plan').textContent=shots.length?`${cfg.tab} ${done}/${shots.length}`:cfg.tab;
+  document.getElementById('plan-add-btn').textContent=cfg.add;
+  document.getElementById('plan-hint').textContent=cfg.hint;
+  const pct=shots.length?Math.round(done/shots.length*100):0;
+  document.getElementById('plan-bar').style.width=pct+'%';
+}
+function renderShots(){
+  const cfg=planConfig();
+  document.getElementById('plan-list').innerHTML=shots.length?shots.map((s,i)=>`
+    <div class="shot-row">
+      <span class="shot-num">${i+1}</span>
+      <input type="checkbox" class="shot-check" ${s.done?'checked':''} onchange="toggleShot(${i})">
+      <input type="text" class="shot-input ${s.done?'done':''}" value="${esc(s.texte)}" placeholder="${cfg.ph}" oninput="shots[${i}].texte=this.value">
+      <button class="shot-del" onclick="delShot(${i})">✕</button>
+    </div>`).join(''):`<div style="color:var(--text-hint);font-size:12.5px;font-style:italic;padding:10px 0">Aucune ligne pour l'instant.</div>`;
+  updatePlanLabels();
+}
+function addShot(){
+  shots.push({texte:'',done:false});
+  renderShots();
+  const inputs=document.querySelectorAll('#plan-list .shot-input');
+  if(inputs.length)inputs[inputs.length-1].focus();
+}
+function toggleShot(i){shots[i].done=!shots[i].done;renderShots();}
+function delShot(i){shots.splice(i,1);renderShots();}
+function shotProgress(c){
+  const l=c.shotlist||[];
+  if(!l.length)return '';
+  const done=l.filter(s=>s.done).length;
+  return `<span class="mini-prog ${done<l.length?'todo':''}">${c.type==='Carrousel'?'📸':c.type==='Reel'?'🎬':'🖼️'} ${done}/${l.length}</span>`;
 }
 
 function saveContenu(){
@@ -875,7 +1036,8 @@ function saveContenu(){
     commentaires:parseInt(document.getElementById('s-coms').value)||0,
     sauvegardes:parseInt(document.getElementById('s-saves').value)||0,
     partages:parseInt(document.getElementById('s-shares').value)||0,
-    portee:parseInt(document.getElementById('s-portee').value)||0
+    portee:parseInt(document.getElementById('s-portee').value)||0,
+    shotlist:shots.filter(s=>s.texte.trim()).map(s=>({texte:s.texte.trim(),done:!!s.done}))
   };
   if(!obj.titre){toast('Titre requis');return;}
   if(editId){const i=D.contenus.findIndex(x=>x.id===editId);if(i>=0)D.contenus[i]=obj;}
@@ -941,6 +1103,7 @@ function ideeToContenuDirect(id){
   document.getElementById('c-notes').value=idea.notes||'';
   document.getElementById('c-edit-id').value='';
   ['s-vues','s-likes','s-coms','s-saves','s-shares','s-portee'].forEach(f=>document.getElementById(f).value=0);
+  shots=[];renderShots();
   document.getElementById('modal-contenu').classList.add('open');
 }
 function ideeToContenu(){
