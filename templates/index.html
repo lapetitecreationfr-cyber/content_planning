@@ -940,10 +940,9 @@ function downloadIdeesTemplate(){
   ],'modele_idees.csv');
 }
 function renderHooks(){
-  const patterns=[...new Set(D.hooks_banque.map(h=>h.pattern))];
-  const filters=['tous',...patterns];
-  document.getElementById('hooks-filters').innerHTML=filters.map(f=>`<button class="stat-filter-btn ${hooksFilter===f?'active':''}" onclick="setHooksFilter('${f}')">${f==='tous'?'Tous':f}</button>`).join('');
-  const list=hooksFilter==='tous'?D.hooks_banque:D.hooks_banque.filter(h=>h.pattern===hooksFilter);
+  const filters=[{k:'tous',label:'Tous'},...D.piliers.map(p=>({k:p.id,label:`${p.emoji} ${p.nom}`}))];
+  document.getElementById('hooks-filters').innerHTML=filters.map(f=>`<button class="stat-filter-btn ${hooksFilter===f.k?'active':''}" onclick="setHooksFilter('${f.k}')">${f.label}</button>`).join('');
+  const list=hooksFilter==='tous'?D.hooks_banque:D.hooks_banque.filter(h=>h.pilier===hooksFilter);
   document.getElementById('hooks-grid').innerHTML=list.map(h=>{
     const p=getPilier(h.pilier);
     const score=h.score||0;
