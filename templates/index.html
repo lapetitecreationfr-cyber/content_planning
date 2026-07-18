@@ -171,6 +171,11 @@ tr:hover td{background:rgba(234,229,219,0.3);}
 .stars{display:flex;gap:2px;}
 .star{font-size:14px;cursor:pointer;transition:transform .15s;}
 .star:hover{transform:scale(1.3);}
+.hook-card.used{background:var(--parchment);border-color:var(--sage);}
+.hook-card.used .hook-texte{color:var(--text-muted);}
+.btn-used{display:inline-flex;align-items:center;gap:4px;padding:4px 9px;border-radius:8px;font-size:11px;font-weight:700;font-family:'Nunito',sans-serif;cursor:pointer;border:1px solid var(--border-md);background:var(--white);color:var(--text-hint);white-space:nowrap;transition:all .15s;}
+.btn-used:hover{border-color:var(--sage);}
+.btn-used.on{background:var(--sage);border-color:var(--sage);color:var(--white);}
 
 /* MODAL */
 .modal-overlay{position:fixed;inset:0;background:rgba(58,46,37,0.35);z-index:100;display:none;align-items:center;justify-content:center;backdrop-filter:blur(3px);}
@@ -940,19 +945,23 @@ function downloadIdeesTemplate(){
   ],'modele_idees.csv');
 }
 function renderHooks(){
-  const filters=[{k:'tous',label:'Tous'},...D.piliers.map(p=>({k:p.id,label:`${p.emoji} ${p.nom}`}))];
+  const filters=[{k:'tous',label:'Tous'},{k:'dispo',label:'✨ Non utilisés'},{k:'faits',label:'✓ Utilisés'},...D.piliers.map(p=>({k:p.id,label:`${p.emoji} ${p.nom}`}))];
   document.getElementById('hooks-filters').innerHTML=filters.map(f=>`<button class="stat-filter-btn ${hooksFilter===f.k?'active':''}" onclick="setHooksFilter('${f.k}')">${f.label}</button>`).join('');
-  const list=hooksFilter==='tous'?D.hooks_banque:D.hooks_banque.filter(h=>h.pilier===hooksFilter);
+  let list=D.hooks_banque;
+  if(hooksFilter==='dispo')list=list.filter(h=>!h.utilise);
+  else if(hooksFilter==='faits')list=list.filter(h=>h.utilise);
+  else if(hooksFilter!=='tous')list=list.filter(h=>h.pilier===hooksFilter);
   document.getElementById('hooks-grid').innerHTML=list.map(h=>{
     const p=getPilier(h.pilier);
     const score=h.score||0;
-    return `<div class="hook-card">
-      <div class="hook-pattern">${h.pattern}</div>
+    return `<div class="hook-card${h.utilise?' used':''}">
+      <div class="hook-pattern">${h.pattern}${h.utilise?' · <span style="color:var(--sage)">utilisé</span>':''}</div>
       <div class="hook-texte">"${h.texte}"</div>
       <div class="hook-footer">
         <span class="badge" style="background:rgba(${hexToRgb(p.couleur)},0.2);color:var(--text-muted)">${p.emoji} ${p.nom}</span>
         <div style="display:flex;gap:5px;align-items:center">
           <div class="stars">${[1,2,3,4,5].map(s=>`<span class="star" onclick="setHookScore('${h.id}',${s})" title="${s}">${s<=score?'⭐':'☆'}</span>`).join('')}</div>
+          <button class="btn-used${h.utilise?' on':''}" onclick="toggleHookUsed('${h.id}')" title="Marquer comme utilisé">${h.utilise?'✓ Utilisé':'Utilisé ?'}</button>
           <button class="btn btn-outline btn-sm btn-icon" onclick="openModal('modal-hook','edit','${h.id}')">✎</button>
           <button class="btn btn-danger btn-sm btn-icon" onclick="deleteHook('${h.id}')">✕</button>
         </div>
@@ -961,6 +970,7 @@ function renderHooks(){
   }).join('');
 }
 function setHooksFilter(f){hooksFilter=f;renderHooks();}
+function toggleHookUsed(id){const h=D.hooks_banque.find(x=>x.id===id);if(h)h.utilise=!h.utilise;saveAll().then(()=>renderHooks());}
 function setHookScore(id,score){const h=D.hooks_banque.find(x=>x.id===id);if(h)h.score=score;saveAll().then(()=>renderHooks());}
 
 function resolvePilier(val){
