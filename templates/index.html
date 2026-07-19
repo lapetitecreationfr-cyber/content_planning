@@ -432,6 +432,13 @@ tr:hover td{background:rgba(234,229,219,0.3);}
       <div class="shot-progress"><div id="plan-bar" style="width:0%"></div></div>
       <div id="plan-list"></div>
       <button class="kanban-add" style="margin-top:6px" onclick="addShot()" id="plan-add-btn">+ Ajouter</button>
+      <div style="border-top:1px solid var(--border);margin:18px 0 12px"></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div style="font-family:'Cormorant Garamond',serif;font-size:17px;color:var(--text-muted)">🧺 Matériel nécessaire <span id="mat-count" style="font-size:12px;font-family:'Nunito',sans-serif;color:var(--sage)"></span></div>
+      </div>
+      <div style="font-size:12px;color:var(--text-muted);font-style:italic;margin-bottom:10px">Coche ce que tu as déjà préparé avant le tournage.</div>
+      <div id="mat-list"></div>
+      <button class="kanban-add" style="margin-top:6px" onclick="addMat()">+ Ajouter du matériel</button>
     </div>
     <div id="mtab-stats" style="display:none">
       <div class="stat-input-grid">
@@ -743,7 +750,7 @@ function importContenusCSV(input){
     if(iTitre<0){toast('Colonne "titre" introuvable — utilise le modèle 📄');return;}
     const iType=findCol(head,['type']),iPilier=findCol(head,['pilier']),iVisual=findCol(head,['visuel','visual']),
           iDate=findCol(head,['date']),iStatut=findCol(head,['statut','status']),iNotes=findCol(head,['notes']),
-          iPlan=findCol(head,['plan','photos','sequences']),
+          iPlan=findCol(head,['plan','photos','sequences']),iMateriel=findCol(head,['materiel','matériel','materiaux']),
           iVues=findCol(head,['vues']),iLikes=findCol(head,['likes']),iComs=findCol(head,['commentaires']),
           iSaves=findCol(head,['sauvegardes','saves']),iShares=findCol(head,['partages']),iPortee=findCol(head,['portee']);
     const existants=new Set(D.contenus.map(c=>norm(c.titre)+'|'+(c.date||'')));
@@ -756,6 +763,7 @@ function importContenusCSV(input){
       if(existants.has(key)){dup++;return;}
       existants.add(key);
       const plan=iPlan>=0?(r[iPlan]||'').split(/\||\n/).map(s=>s.trim()).filter(Boolean):[];
+      const materiel=iMateriel>=0?(r[iMateriel]||'').split(/\||\n/).map(s=>s.trim()).filter(Boolean):[];
       D.contenus.push({
         id:'C'+Date.now().toString().slice(-6)+n,
         type:iType>=0?resolveType(r[iType]):'Reel',
@@ -766,6 +774,7 @@ function importContenusCSV(input){
         statut:iStatut>=0?resolveStatut(r[iStatut]):'Pas commencé',
         notes:iNotes>=0?(r[iNotes]||'').trim():'',
         shotlist:plan.map(t=>({texte:t,done:false})),
+        materiel:materiel.map(t=>({texte:t,done:false})),
         vues:iVues>=0?(parseInt(r[iVues])||0):0,
         likes:iLikes>=0?(parseInt(r[iLikes])||0):0,
         commentaires:iComs>=0?(parseInt(r[iComs])||0):0,
@@ -779,16 +788,16 @@ function importContenusCSV(input){
   });
 }
 function exportContenusCSV(){
-  const rows=[['type','titre','pilier','visuel','date','statut','notes','plan','vues','likes','commentaires','sauvegardes','partages','portee']];
+  const rows=[['type','titre','pilier','visuel','date','statut','notes','plan','materiel','vues','likes','commentaires','sauvegardes','partages','portee']];
   sortedContenus().forEach(c=>rows.push([c.type,c.titre,getPilier(c.pilier).nom,c.visual_hook||'',c.date||'',c.statut,c.notes||'',
-    (c.shotlist||[]).map(s=>s.texte).join(' | '),c.vues||0,c.likes||0,c.commentaires||0,c.sauvegardes||0,c.partages||0,c.portee||0]));
+    (c.shotlist||[]).map(s=>s.texte).join(' | '),(c.materiel||[]).map(m=>m.texte).join(' | '),c.vues||0,c.likes||0,c.commentaires||0,c.sauvegardes||0,c.partages||0,c.portee||0]));
   csvDownload(rows,'contenus.csv');
 }
 function downloadContenusTemplate(){
   csvDownload([
-    ['type','titre','pilier','visuel','date','statut','notes','plan'],
-    ['Reel',"Le matin où j'ai arrêté de courir",'Voix','B-roll mains, lumière douce','2026-08-03','Pas commencé','Caption intime','Plan 1 — réveil | Plan 2 — café | Plan 3 — atelier'],
-    ['Carrousel','5 objets qui me réconfortent','Ambiance','Flat lay lin beige','2026-08-06','Prepping','','Photo 1 — bougie | Photo 2 — tasse | Photo 3 — plaid']
+    ['type','titre','pilier','visuel','date','statut','notes','plan','materiel'],
+    ['Reel',"Le matin où j'ai arrêté de courir",'Voix','B-roll mains, lumière douce','2026-08-03','Pas commencé','Caption intime','Plan 1 — réveil | Plan 2 — café | Plan 3 — atelier','trépied | lumière naturelle | café | carnet'],
+    ['Carrousel','5 objets qui me réconfortent','Ambiance','Flat lay lin beige','2026-08-06','Prepping','','Photo 1 — bougie | Photo 2 — tasse | Photo 3 — plaid','lin beige | bougie | plaid | tasse']
   ],'modele_contenus.csv');
 }
 function renderListe(){
@@ -1151,6 +1160,7 @@ function openModalContenu(id,datePreset){
     document.getElementById('s-portee').value=c.portee||0;
     document.getElementById('c-edit-id').value=id;
     shots=(c.shotlist||[]).map(s=>({texte:s.texte||'',done:!!s.done}));
+    mats=(c.materiel||[]).map(m=>({texte:m.texte||'',done:!!m.done}));
   } else {
     document.getElementById('mc-title').textContent='Nouveau contenu 🌸';
     ['c-titre','c-visual','c-notes'].forEach(f=>document.getElementById(f).value='');
@@ -1159,8 +1169,9 @@ function openModalContenu(id,datePreset){
     ['s-vues','s-likes','s-coms','s-saves','s-shares','s-portee'].forEach(f=>document.getElementById(f).value=0);
     document.getElementById('c-edit-id').value='';
     shots=[];
+    mats=[];
   }
-  renderShots();
+  renderShots();renderMats();
   document.getElementById('modal-contenu').classList.add('open');
 }
 function openModalContenuStatut(statut){openModalContenu();document.getElementById('c-statut').value=statut;}
@@ -1211,6 +1222,27 @@ function addShot(){
 }
 function toggleShot(i){shots[i].done=!shots[i].done;renderShots();}
 function delShot(i){shots.splice(i,1);renderShots();}
+
+// ── MATÉRIEL ──
+let mats=[];
+function renderMats(){
+  const done=mats.filter(m=>m.done).length;
+  document.getElementById('mat-count').textContent=mats.length?`${done}/${mats.length}`:'';
+  document.getElementById('mat-list').innerHTML=mats.length?mats.map((m,i)=>`
+    <div class="shot-row">
+      <input type="checkbox" class="shot-check" ${m.done?'checked':''} onchange="toggleMat(${i})">
+      <input type="text" class="shot-input ${m.done?'done':''}" value="${esc(m.texte)}" placeholder="ex: trépied, lumière annulaire, lin beige, café" oninput="mats[${i}].texte=this.value">
+      <button class="shot-del" onclick="delMat(${i})">✕</button>
+    </div>`).join(''):`<div style="color:var(--text-hint);font-size:12.5px;font-style:italic;padding:10px 0">Aucun matériel pour l'instant.</div>`;
+}
+function addMat(){
+  mats.push({texte:'',done:false});
+  renderMats();
+  const inputs=document.querySelectorAll('#mat-list .shot-input');
+  if(inputs.length)inputs[inputs.length-1].focus();
+}
+function toggleMat(i){mats[i].done=!mats[i].done;renderMats();}
+function delMat(i){mats.splice(i,1);renderMats();}
 function shotProgress(c){
   const l=c.shotlist||[];
   if(!l.length)return '';
@@ -1235,7 +1267,8 @@ function saveContenu(){
     sauvegardes:parseInt(document.getElementById('s-saves').value)||0,
     partages:parseInt(document.getElementById('s-shares').value)||0,
     portee:parseInt(document.getElementById('s-portee').value)||0,
-    shotlist:shots.filter(s=>s.texte.trim()).map(s=>({texte:s.texte.trim(),done:!!s.done}))
+    shotlist:shots.filter(s=>s.texte.trim()).map(s=>({texte:s.texte.trim(),done:!!s.done})),
+    materiel:mats.filter(m=>m.texte.trim()).map(m=>({texte:m.texte.trim(),done:!!m.done}))
   };
   if(!obj.titre){toast('Titre requis');return;}
   if(editId){const i=D.contenus.findIndex(x=>x.id===editId);if(i>=0)D.contenus[i]=obj;}
@@ -1302,6 +1335,7 @@ function ideeToContenuDirect(id){
   document.getElementById('c-edit-id').value='';
   ['s-vues','s-likes','s-coms','s-saves','s-shares','s-portee'].forEach(f=>document.getElementById(f).value=0);
   shots=[];renderShots();
+  mats=[];renderMats();
   document.getElementById('modal-contenu').classList.add('open');
 }
 function ideeToContenu(){
