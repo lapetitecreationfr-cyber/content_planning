@@ -50,7 +50,11 @@ def index():
 
 @app.route("/api/data", methods=["GET"])
 def get_data():
-    return jsonify(load_data())
+    resp = jsonify(load_data())
+    resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    resp.headers["Pragma"] = "no-cache"
+    resp.headers["Expires"] = "0"
+    return resp
 
 @app.route("/api/data", methods=["POST"])
 def post_data():
