@@ -532,7 +532,7 @@ tr:hover td{background:rgba(234,229,219,0.3);}
 let D={};
 
 async function init(){
-  const r=await fetch('/api/data');D=await r.json();
+  const r=await fetch('/api/data?t='+Date.now(),{cache:'no-store'});D=await r.json();
   renderAll();
 }
 async function saveAll(){
@@ -547,7 +547,7 @@ const PAGES={
   'dashboard':{title:'Vue d\'ensemble 🌸',actions:`<button class="btn btn-primary btn-sm" onclick="openModalContenu()">+ Nouveau contenu</button>`},
   'calendrier':{title:'Calendrier',actions:`<button class="btn btn-primary btn-sm" onclick="openModalContenu()">+ Nouveau contenu</button>`},
   'kanban':{title:'Production 🎬',actions:`<button class="btn btn-primary btn-sm" onclick="openModalContenu()">+ Nouveau contenu</button><button class="btn btn-outline btn-sm" onclick="document.getElementById('contenus-csv-input').click()">📥 Importer CSV</button><button class="btn btn-outline btn-sm" onclick="exportContenusCSV()">📤 Exporter</button><button class="btn btn-outline btn-sm" onclick="downloadContenusTemplate()">📄 Modèle</button>`},
-  'liste':{title:'Tous les contenus',actions:`<button class="btn btn-primary btn-sm" onclick="openModalContenu()">+ Nouveau contenu</button>`},
+  'liste':{title:'Tous les contenus',actions:`<button class="btn btn-primary btn-sm" onclick="openModalContenu()">+ Nouveau contenu</button><button class="btn btn-outline btn-sm" onclick="document.getElementById('contenus-csv-input').click()">📥 Importer CSV</button><button class="btn btn-outline btn-sm" onclick="exportContenusCSV()">📤 Exporter</button><button class="btn btn-outline btn-sm" onclick="downloadContenusTemplate()">📄 Modèle</button>`},
   'inspiration':{title:'Inspiration & Idées 💡',actions:`<span id="inspo-actions" style="display:flex;gap:8px"></span>`},
   'hooks':{title:'Banque de hooks 🎣',actions:`<button class="btn btn-primary btn-sm" onclick="openModal('modal-hook','new')">+ Hook</button><button class="btn btn-outline btn-sm" onclick="document.getElementById('hooks-csv-input').click()">📥 Importer CSV</button><button class="btn btn-outline btn-sm" onclick="exportHooksCSV()">📤 Exporter</button><button class="btn btn-outline btn-sm" onclick="downloadHooksTemplate()">📄 Modèle</button>`},
   'stats':{title:'Statistiques 📊',actions:''},
