@@ -547,16 +547,35 @@ async function saveAll(){
   toast('Enregistré ✨');
 }
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200);}
+
+function viderContenus(){
+  const n=D.contenus.length;
+  if(!n){toast('Aucun contenu à vider');return;}
+  if(!confirm(`Vider les ${n} contenu(s) ?\n\nCette action est irréversible. Pense à exporter en CSV avant si tu veux garder une copie.`))return;
+  D.contenus=[];saveAll().then(()=>renderAll());
+}
+function viderIdees(){
+  const n=D.idees.length;
+  if(!n){toast('Aucune idée à vider');return;}
+  if(!confirm(`Vider les ${n} idée(s) ?\n\nCette action est irréversible. Pense à exporter en CSV avant si tu veux garder une copie.`))return;
+  D.idees=[];saveAll().then(()=>renderInspo());
+}
+function viderHooks(){
+  const n=D.hooks_banque.length;
+  if(!n){toast('Aucun hook à vider');return;}
+  if(!confirm(`Vider les ${n} hook(s) ?\n\nCette action est irréversible. Pense à exporter en CSV avant si tu veux garder une copie.`))return;
+  D.hooks_banque=[];saveAll().then(()=>renderHooks());
+}
 function renderAll(){renderDashboard();renderCalendrier();renderKanban();renderListe();renderInspo();renderHooks();renderStats();renderPiliers();}
 
 // ── NAV ──
 const PAGES={
   'dashboard':{title:'Vue d\'ensemble 🌸',actions:`<button class="btn btn-primary btn-sm" onclick="openModalContenu()">+ Nouveau contenu</button>`},
   'calendrier':{title:'Calendrier',actions:`<button class="btn btn-primary btn-sm" onclick="openModalContenu()">+ Nouveau contenu</button>`},
-  'kanban':{title:'Production 🎬',actions:`<button class="btn btn-primary btn-sm" onclick="openModalContenu()">+ Nouveau contenu</button><button class="btn btn-outline btn-sm" onclick="document.getElementById('contenus-csv-input').click()">📥 Importer CSV</button><button class="btn btn-outline btn-sm" onclick="exportContenusCSV()">📤 Exporter</button><button class="btn btn-outline btn-sm" onclick="downloadContenusTemplate()">📄 Modèle</button>`},
-  'liste':{title:'Tous les contenus',actions:`<button class="btn btn-primary btn-sm" onclick="openModalContenu()">+ Nouveau contenu</button><button class="btn btn-outline btn-sm" onclick="document.getElementById('contenus-csv-input').click()">📥 Importer CSV</button><button class="btn btn-outline btn-sm" onclick="exportContenusCSV()">📤 Exporter</button><button class="btn btn-outline btn-sm" onclick="downloadContenusTemplate()">📄 Modèle</button>`},
+  'kanban':{title:'Production 🎬',actions:`<button class="btn btn-primary btn-sm" onclick="openModalContenu()">+ Nouveau contenu</button><button class="btn btn-outline btn-sm" onclick="document.getElementById('contenus-csv-input').click()">📥 Importer CSV</button><button class="btn btn-outline btn-sm" onclick="exportContenusCSV()">📤 Exporter</button><button class="btn btn-outline btn-sm" onclick="downloadContenusTemplate()">📄 Modèle</button><button class="btn btn-danger btn-sm" onclick="viderContenus()">🗑️ Vider</button>`},
+  'liste':{title:'Tous les contenus',actions:`<button class="btn btn-primary btn-sm" onclick="openModalContenu()">+ Nouveau contenu</button><button class="btn btn-outline btn-sm" onclick="document.getElementById('contenus-csv-input').click()">📥 Importer CSV</button><button class="btn btn-outline btn-sm" onclick="exportContenusCSV()">📤 Exporter</button><button class="btn btn-outline btn-sm" onclick="downloadContenusTemplate()">📄 Modèle</button><button class="btn btn-danger btn-sm" onclick="viderContenus()">🗑️ Vider</button>`},
   'inspiration':{title:'Inspiration & Idées 💡',actions:`<span id="inspo-actions" style="display:flex;gap:8px"></span>`},
-  'hooks':{title:'Banque de hooks 🎣',actions:`<button class="btn btn-primary btn-sm" onclick="openModal('modal-hook','new')">+ Hook</button><button class="btn btn-outline btn-sm" onclick="document.getElementById('hooks-csv-input').click()">📥 Importer CSV</button><button class="btn btn-outline btn-sm" onclick="exportHooksCSV()">📤 Exporter</button><button class="btn btn-outline btn-sm" onclick="downloadHooksTemplate()">📄 Modèle</button>`},
+  'hooks':{title:'Banque de hooks 🎣',actions:`<button class="btn btn-primary btn-sm" onclick="openModal('modal-hook','new')">+ Hook</button><button class="btn btn-outline btn-sm" onclick="document.getElementById('hooks-csv-input').click()">📥 Importer CSV</button><button class="btn btn-outline btn-sm" onclick="exportHooksCSV()">📤 Exporter</button><button class="btn btn-outline btn-sm" onclick="downloadHooksTemplate()">📄 Modèle</button><button class="btn btn-danger btn-sm" onclick="viderHooks()">🗑️ Vider</button>`},
   'stats':{title:'Statistiques 📊',actions:''},
   'piliers':{title:'Piliers & stratégie ⚙️',actions:`<button class="btn btn-primary btn-sm" onclick="openModal('modal-pilier','new')">+ Pilier</button>`}
 };
@@ -839,7 +858,7 @@ function updateInspoActions(){
   if(!el)return;
   el.innerHTML=inspoTab==='comptes'
     ?`<button class="btn btn-primary btn-sm" onclick="openModal('modal-inspo','new')">+ Compte</button><button class="btn btn-outline btn-sm" onclick="document.getElementById('inspo-csv-input').click()">📥 Importer CSV</button><button class="btn btn-outline btn-sm" onclick="exportInspoCSV()">📤 Exporter</button><button class="btn btn-outline btn-sm" onclick="downloadInspoTemplate()">📄 Modèle</button>`
-    :`<button class="btn btn-primary btn-sm" onclick="openModal('modal-idee','new')">+ Idée</button><button class="btn btn-outline btn-sm" onclick="document.getElementById('idees-csv-input').click()">📥 Importer CSV</button><button class="btn btn-outline btn-sm" onclick="exportIdeesCSV()">📤 Exporter</button><button class="btn btn-outline btn-sm" onclick="downloadIdeesTemplate()">📄 Modèle</button>`;
+    :`<button class="btn btn-primary btn-sm" onclick="openModal('modal-idee','new')">+ Idée</button><button class="btn btn-outline btn-sm" onclick="document.getElementById('idees-csv-input').click()">📥 Importer CSV</button><button class="btn btn-outline btn-sm" onclick="exportIdeesCSV()">📤 Exporter</button><button class="btn btn-outline btn-sm" onclick="downloadIdeesTemplate()">📄 Modèle</button><button class="btn btn-danger btn-sm" onclick="viderIdees()">🗑️ Vider</button>`;
 }
 function renderInspo(){
   document.getElementById('inspo-grid').innerHTML=D.inspirations.map(i=>`
