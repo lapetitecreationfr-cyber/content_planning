@@ -226,13 +226,19 @@ tr:hover td{background:rgba(234,229,219,0.3);}
 .tj-head{padding:12px 16px;background:var(--parchment);display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;}
 .tj-head-title{font-family:'Cormorant Garamond',serif;font-size:20px;color:var(--text);}
 .tj-head-meta{font-size:12px;color:var(--text-muted);font-weight:600;white-space:nowrap;}
-.tj-row{display:flex;gap:10px;padding:12px 16px;border-top:1px solid var(--border);align-items:flex-start;}
-.tj-row.done{background:var(--cream);}
+.tj-block{padding:12px 16px;border-top:1px solid var(--border);}
+.tj-block.done{background:var(--cream);}
+.tj-block-head{display:flex;gap:10px;align-items:flex-start;}
 .tj-check{width:18px;height:18px;margin-top:2px;flex-shrink:0;accent-color:var(--sage);cursor:pointer;}
-.tj-num{font-family:'Cormorant Garamond',serif;color:var(--text-hint);font-size:15px;flex-shrink:0;width:16px;text-align:center;}
 .tj-body{flex:1;min-width:0;}
 .tj-title{font-weight:700;font-size:13.5px;color:var(--text);}
-.tj-row.done .tj-title{text-decoration:line-through;color:var(--text-hint);}
+.tj-block.done .tj-title{text-decoration:line-through;color:var(--text-hint);}
+.tj-plans{margin:8px 0 2px 28px;display:flex;flex-direction:column;gap:1px;}
+.tj-plan{display:flex;gap:8px;align-items:flex-start;padding:3px 0;}
+.tj-plan-check{width:15px;height:15px;margin-top:2px;flex-shrink:0;accent-color:var(--sage);cursor:pointer;}
+.tj-plan-text{font-size:12.5px;color:var(--text-muted);line-height:1.35;}
+.tj-plan.done .tj-plan-text{text-decoration:line-through;color:var(--text-hint);}
+.tj-gh{color:var(--amber);font-weight:700;font-size:10.5px;background:var(--amber-light);border-radius:20px;padding:0 7px;margin-left:4px;white-space:nowrap;}
 .tj-meta{font-size:11.5px;color:var(--text-muted);margin-top:3px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
 .tj-mats{margin-top:6px;display:flex;gap:4px;flex-wrap:wrap;}
 .tj-mat{background:var(--cream);border:1px solid var(--border);border-radius:20px;padding:1px 9px;font-size:10.5px;color:var(--text-muted);}
@@ -603,6 +609,7 @@ function viderHooks(){
 }
 
 // ── PLANNING TOURNAGE ──
+function tjBlockDone(b){return (b.plans&&b.plans.length)?b.plans.every(p=>p.done):!!b.done;}
 function tournageGroups(){
   const groups=[];const map={};
   (D.tournage||[]).forEach(b=>{
@@ -612,6 +619,7 @@ function tournageGroups(){
   });
   return groups;
 }
+function ghTag(t){return /golden hour|coucher de soleil|fin de journée/i.test(t)?' <span class="tj-gh">☀️ golden hour</span>':'';}
 function renderTournage(){
   const list=D.tournage||[];
   const sumEl=document.getElementById('tournage-summary');
@@ -623,31 +631,43 @@ function renderTournage(){
     return;
   }
   const totMin=list.reduce((s,b)=>s+(parseInt(b.duree)||0),0);
-  const done=list.filter(b=>b.done).length;
-  const doneMin=list.filter(b=>b.done).reduce((s,b)=>s+(parseInt(b.duree)||0),0);
+  const doneBlocs=list.filter(tjBlockDone);
+  const doneMin=doneBlocs.reduce((s,b)=>s+(parseInt(b.duree)||0),0);
+  const totPlans=list.reduce((s,b)=>s+((b.plans||[]).length),0);
+  const donePlans=list.reduce((s,b)=>s+((b.plans||[]).filter(p=>p.done).length),0);
   sumEl.innerHTML=`<div class="tj-sum">
     <div class="tj-sum-card"><div class="tj-sum-val">${list.length}</div><div class="tj-sum-lbl">Blocs</div></div>
-    <div class="tj-sum-card"><div class="tj-sum-val">${done}/${list.length}</div><div class="tj-sum-lbl">Tournés</div></div>
+    <div class="tj-sum-card"><div class="tj-sum-val">${doneBlocs.length}/${list.length}</div><div class="tj-sum-lbl">Blocs tournés</div></div>
+    ${totPlans?`<div class="tj-sum-card"><div class="tj-sum-val">${donePlans}/${totPlans}</div><div class="tj-sum-lbl">Plans tournés</div></div>`:''}
     <div class="tj-sum-card"><div class="tj-sum-val">${fmtDuree(totMin)}</div><div class="tj-sum-lbl">Durée totale</div></div>
     <div class="tj-sum-card"><div class="tj-sum-val">${fmtDuree(doneMin)}</div><div class="tj-sum-lbl">Déjà tourné</div></div>
   </div>`;
   listEl.innerHTML=tournageGroups().map(g=>{
     const gMin=g.blocs.reduce((s,b)=>s+(parseInt(b.duree)||0),0);
-    const gDone=g.blocs.filter(b=>b.done).length;
+    const gDone=g.blocs.filter(tjBlockDone).length;
     return `<div class="tj-group">
       <div class="tj-head">
         <div class="tj-head-title">${esc(g.creneau)}</div>
-        <div class="tj-head-meta">${gDone}/${g.blocs.length} · ${fmtDuree(gMin)}</div>
+        <div class="tj-head-meta">${gDone}/${g.blocs.length} blocs · ${fmtDuree(gMin)}</div>
       </div>
       ${g.blocs.map(b=>{
-        const gi=(D.tournage.indexOf(b));
-        const mats=(b.materiel||[]);
-        return `<div class="tj-row${b.done?' done':''}">
-          <input type="checkbox" class="tj-check" ${b.done?'checked':''} onchange="toggleTournage(${gi})">
-          <div class="tj-body">
-            <div class="tj-title">${b.type?typeBadge(b.type)+' ':''}${esc(b.bloc)}</div>
-            <div class="tj-meta">${b.lieu?`<span>📍 ${esc(b.lieu)}</span>`:''}${b.duree?`<span class="tj-duree">${esc(String(b.duree))} min</span>`:''}</div>
-            ${mats.length?`<div class="tj-mats">${mats.map(m=>`<span class="tj-mat">${esc(m)}</span>`).join('')}</div>`:''}
+        const gi=D.tournage.indexOf(b);
+        const plans=b.plans||[];
+        const done=tjBlockDone(b);
+        const pDone=plans.filter(p=>p.done).length;
+        return `<div class="tj-block${done?' done':''}">
+          <div class="tj-block-head">
+            <input type="checkbox" class="tj-check" ${done?'checked':''} onchange="toggleTournageBloc(${gi})" title="Tout cocher / décocher">
+            <div class="tj-body">
+              <div class="tj-title">${b.type?typeBadge(b.type)+' ':''}${esc(b.bloc)}</div>
+              <div class="tj-meta">${b.lieu?`<span>📍 ${esc(b.lieu)}</span>`:''}${b.duree?`<span class="tj-duree">${esc(String(b.duree))} min</span>`:''}${plans.length?`<span>🎬 ${pDone}/${plans.length} plans</span>`:''}</div>
+              ${(b.materiel||[]).length?`<div class="tj-mats">${b.materiel.map(m=>`<span class="tj-mat">${esc(m)}</span>`).join('')}</div>`:''}
+              ${plans.length?`<div class="tj-plans">${plans.map((p,pi)=>`
+                <div class="tj-plan${p.done?' done':''}">
+                  <input type="checkbox" class="tj-plan-check" ${p.done?'checked':''} onchange="toggleTournagePlan(${gi},${pi})">
+                  <span class="tj-plan-text">${esc(p.texte)}${ghTag(p.texte)}</span>
+                </div>`).join('')}</div>`:''}
+            </div>
           </div>
         </div>`;
       }).join('')}
@@ -655,10 +675,16 @@ function renderTournage(){
   }).join('');
 }
 function fmtDuree(m){m=parseInt(m)||0;if(m<60)return m+' min';const h=Math.floor(m/60),r=m%60;return r?`${h}h${String(r).padStart(2,'0')}`:`${h}h`;}
-function toggleTournage(i){D.tournage[i].done=!D.tournage[i].done;saveAll().then(()=>renderTournage());}
+function toggleTournagePlan(bi,pi){D.tournage[bi].plans[pi].done=!D.tournage[bi].plans[pi].done;saveAll().then(()=>renderTournage());}
+function toggleTournageBloc(bi){
+  const b=D.tournage[bi];
+  if(b.plans&&b.plans.length){const all=b.plans.every(p=>p.done);b.plans.forEach(p=>p.done=!all);}
+  else b.done=!b.done;
+  saveAll().then(()=>renderTournage());
+}
 function resetTournageChecks(){
   if(!(D.tournage||[]).length)return;
-  D.tournage.forEach(b=>b.done=false);
+  D.tournage.forEach(b=>{b.done=false;(b.plans||[]).forEach(p=>p.done=false);});
   saveAll().then(()=>renderTournage());
 }
 function viderTournage(){
@@ -667,52 +693,73 @@ function viderTournage(){
   if(!confirm(`Vider les ${n} bloc(s) de tournage ?\n\nCette action est irréversible. Pense à exporter en CSV avant si tu veux garder une copie.`))return;
   D.tournage=[];saveAll().then(()=>renderTournage());
 }
+// Import : une ligne = un plan. Les lignes de même créneau+bloc sont regroupées.
 function importTournageCSV(input){
   readCSV(input,(rows,head)=>{
     const iCreneau=findCol(head,['creneau','créneau','jour','session']);
     const iBloc=findCol(head,['bloc','contenu','titre','concept']);
     if(iBloc<0){toast('Colonne "bloc" introuvable — utilise le modèle 📄');return;}
     const iLieu=findCol(head,['lieu','endroit']),iMat=findCol(head,['materiel','matériel','materiaux']),
-          iDuree=findCol(head,['duree','durée','min','minutes']),iType=findCol(head,['type']);
-    const existants=new Set((D.tournage||[]).map(b=>norm(b.creneau)+'|'+norm(b.bloc)));
-    let added=0,dup=0,vides=0;
+          iDuree=findCol(head,['duree','durée','min','minutes']),iType=findCol(head,['type']),
+          iPlan=findCol(head,['plan','plans','shot']);
     if(!D.tournage)D.tournage=[];
+    // index des blocs existants pour regroupement + anti-doublon
+    const blocMap={};
+    D.tournage.forEach(b=>{blocMap[norm(b.creneau)+'|'+norm(b.bloc)]=b;});
+    const existPlans=new Set();
+    D.tournage.forEach(b=>(b.plans||[]).forEach(p=>existPlans.add(norm(b.creneau)+'|'+norm(b.bloc)+'|'+norm(p.texte))));
+    let newBlocs=0,newPlans=0,vides=0,dup=0;
     rows.forEach((r,n)=>{
       const bloc=(r[iBloc]||'').trim();
       if(!bloc){vides++;return;}
       const creneau=iCreneau>=0?(r[iCreneau]||'').trim():'';
-      const key=norm(creneau)+'|'+norm(bloc);
-      if(existants.has(key)){dup++;return;}
-      existants.add(key);
-      const mats=iMat>=0?(r[iMat]||'').split(/[|,]/).map(s=>s.trim()).filter(Boolean):[];
-      D.tournage.push({
-        id:'TJ'+Date.now().toString().slice(-5)+n,
-        creneau:creneau,
-        bloc:bloc,
-        lieu:iLieu>=0?(r[iLieu]||'').trim():'',
-        materiel:mats,
-        duree:iDuree>=0?(parseInt(r[iDuree])||0):0,
-        type:iType>=0?resolveType(r[iType]):'',
-        done:false
-      });
-      added++;
+      const bkey=norm(creneau)+'|'+norm(bloc);
+      let b=blocMap[bkey];
+      if(!b){
+        b={id:'TJ'+Date.now().toString().slice(-5)+n,creneau,bloc,
+           lieu:iLieu>=0?(r[iLieu]||'').trim():'',
+           materiel:iMat>=0?(r[iMat]||'').split(/[|,]/).map(s=>s.trim()).filter(Boolean):[],
+           duree:iDuree>=0?(parseInt(r[iDuree])||0):0,
+           type:iType>=0?resolveType(r[iType]):'',
+           plans:[],done:false};
+        D.tournage.push(b);blocMap[bkey]=b;newBlocs++;
+      } else {
+        if(iLieu>=0&&!b.lieu&&(r[iLieu]||'').trim())b.lieu=(r[iLieu]).trim();
+        if(iDuree>=0&&!b.duree&&parseInt(r[iDuree]))b.duree=parseInt(r[iDuree]);
+        if(iType>=0&&!b.type&&(r[iType]||'').trim())b.type=resolveType(r[iType]);
+        if(iMat>=0&&!b.materiel.length&&(r[iMat]||'').trim())b.materiel=(r[iMat]).split(/[|,]/).map(s=>s.trim()).filter(Boolean);
+      }
+      const plan=iPlan>=0?(r[iPlan]||'').trim():'';
+      if(plan){
+        const pkey=bkey+'|'+norm(plan);
+        if(existPlans.has(pkey)){dup++;}
+        else{b.plans.push({texte:plan,done:false});existPlans.add(pkey);newPlans++;}
+      }
     });
-    if(importReport(added,dup,vides))saveAll().then(()=>renderTournage());
+    if(!newBlocs&&!newPlans){toast(`Rien importé${dup?` · ${dup} doublon(s)`:''}`);return;}
+    saveAll().then(()=>{
+      renderTournage();
+      toast(`${newBlocs} bloc(s), ${newPlans} plan(s) importé(s)${dup?` · ${dup} doublon(s)`:''}${vides?` · ${vides} vide(s)`:''} ✨`);
+    });
   });
 }
 function exportTournageCSV(){
-  const rows=[['creneau','type','bloc','lieu','materiel','duree']];
-  (D.tournage||[]).forEach(b=>rows.push([b.creneau||'',b.type||'',b.bloc||'',b.lieu||'',(b.materiel||[]).join(', '),b.duree||0]));
+  const rows=[['creneau','type','bloc','lieu','materiel','duree','plan']];
+  (D.tournage||[]).forEach(b=>{
+    const base=[b.creneau||'',b.type||'',b.bloc||'',b.lieu||'',(b.materiel||[]).join(', '),b.duree||0];
+    if((b.plans||[]).length)b.plans.forEach(p=>rows.push([...base,p.texte]));
+    else rows.push([...base,'']);
+  });
   csvDownload(rows,'planning_tournage.csv');
 }
 function downloadTournageTemplate(){
   csvDownload([
-    ['creneau','type','bloc','lieu','materiel','duree'],
-    ['Vendredi 18h-21h','Reel','recommencer qu\'à fabriquer','Atelier','tissu, fil, machine, ciseaux, pochette en cours, livre','30'],
-    ['Vendredi 18h-21h','Reel','combien d\'étapes','Atelier','machine, tissu, patron, crayon textile, ciseaux','40'],
-    ['Vendredi 18h-21h','Carrousel','un loisir doit être utile','Maison int.','table bois, tasse, livre, carnet, plante, bougie','35'],
-    ['Samedi 9h-12h','Carrousel','arroser mes fleurs','Jardin','arrosoir, pots, tasse, banc','35'],
-    ['Samedi 9h-12h','Reel','je passais devant','Extérieur','carnet coloriage, crayons, plaid, tote','25']
+    ['creneau','type','bloc','lieu','materiel','duree','plan'],
+    ['Vendredi 18h-21h','Reel','recommencer qu\'à fabriquer','Atelier','tissu, fil, machine, ciseaux','30','mains sur tissu, lisser le pli, détail'],
+    ['Vendredi 18h-21h','Reel','recommencer qu\'à fabriquer','Atelier','','','tissu sous l\'aiguille, coudre une ligne, rapproché'],
+    ['Vendredi 18h-21h','Reel','recommencer qu\'à fabriquer','Atelier','','','mains avec découvit, défaire la couture, détail'],
+    ['Samedi 9h-12h','Carrousel','arroser mes fleurs','Jardin','arrosoir, pots, tasse','35','sortie avec l\'arrosoir vers les fleurs, moyen'],
+    ['Samedi 9h-12h','Carrousel','arroser mes fleurs','Jardin','','','main sur une fleur humide, détail']
   ],'modele_planning_tournage.csv');
 }
 function renderAll(){if(!D.tournage)D.tournage=[];renderDashboard();renderCalendrier();renderKanban();renderListe();renderTournage();renderInspo();renderHooks();renderStats();renderPiliers();}
