@@ -217,16 +217,43 @@ tr:hover td{background:rgba(234,229,219,0.3);}
 .mini-prog{font-size:10px;font-weight:700;color:var(--sage);white-space:nowrap;}
 .mini-prog.todo{color:var(--text-hint);}
 
+/* ── PLANNING TOURNAGE ── */
+.tj-sum{display:flex;gap:10px;flex-wrap:wrap;}
+.tj-sum-card{background:var(--white);border:1px solid var(--border);border-radius:14px;padding:12px 18px;flex:1;min-width:120px;box-shadow:var(--shadow);}
+.tj-sum-val{font-family:'Cormorant Garamond',serif;font-size:26px;color:var(--text);line-height:1;}
+.tj-sum-lbl{font-size:11px;color:var(--text-muted);margin-top:4px;text-transform:uppercase;letter-spacing:.04em;}
+.tj-group{background:var(--white);border:1px solid var(--border);border-radius:16px;margin-bottom:14px;overflow:hidden;box-shadow:var(--shadow);}
+.tj-head{padding:12px 16px;background:var(--parchment);display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;}
+.tj-head-title{font-family:'Cormorant Garamond',serif;font-size:20px;color:var(--text);}
+.tj-head-meta{font-size:12px;color:var(--text-muted);font-weight:600;white-space:nowrap;}
+.tj-row{display:flex;gap:10px;padding:12px 16px;border-top:1px solid var(--border);align-items:flex-start;}
+.tj-row.done{background:var(--cream);}
+.tj-check{width:18px;height:18px;margin-top:2px;flex-shrink:0;accent-color:var(--sage);cursor:pointer;}
+.tj-num{font-family:'Cormorant Garamond',serif;color:var(--text-hint);font-size:15px;flex-shrink:0;width:16px;text-align:center;}
+.tj-body{flex:1;min-width:0;}
+.tj-title{font-weight:700;font-size:13.5px;color:var(--text);}
+.tj-row.done .tj-title{text-decoration:line-through;color:var(--text-hint);}
+.tj-meta{font-size:11.5px;color:var(--text-muted);margin-top:3px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+.tj-mats{margin-top:6px;display:flex;gap:4px;flex-wrap:wrap;}
+.tj-mat{background:var(--cream);border:1px solid var(--border);border-radius:20px;padding:1px 9px;font-size:10.5px;color:var(--text-muted);}
+.tj-duree{background:var(--sage-light);color:var(--sage);border-radius:20px;padding:1px 9px;font-size:10.5px;font-weight:700;white-space:nowrap;}
+.tj-empty{text-align:center;padding:50px 20px;color:var(--text-hint);}
+
 /* ── MOBILE RESPONSIVE ── */
 @media (max-width: 768px) {
   .sidebar{width:100%;height:auto;position:fixed;bottom:0;top:auto;left:0;right:0;border-right:none;border-top:1px solid var(--border);flex-direction:row;z-index:20;overflow-x:auto;overflow-y:hidden;}
   .sidebar-header{display:none;}
   .nav{display:flex;flex-direction:row;padding:6px 8px;gap:2px;overflow-x:auto;white-space:nowrap;}
   .nav-section{display:none;}
-  .nav-item{flex-direction:column;gap:2px;padding:6px 10px;font-size:10px;min-width:60px;text-align:center;border-radius:10px;}
+  .nav-item{flex-direction:column;gap:2px;padding:6px 4px;font-size:9px;width:72px;min-width:72px;text-align:center;border-radius:10px;}
   .nav-item .nie{font-size:20px;width:auto;}
+  .nav-item .nl{white-space:normal;line-height:1.12;display:block;}
   .main{margin-left:0;margin-bottom:70px;}
-  .topbar{padding:0 16px;height:52px;}
+  .topbar{padding:0 14px;height:52px;gap:10px;}
+  .page-title{flex-shrink:0;max-width:36%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .topbar-actions{flex:1;min-width:0;overflow-x:auto;flex-wrap:nowrap;justify-content:flex-start;-webkit-overflow-scrolling:touch;}
+  .topbar-actions::-webkit-scrollbar{height:0;}
+  .topbar-actions .btn{white-space:nowrap;flex-shrink:0;padding:6px 10px;font-size:11px;}
   .page-title{font-size:18px;}
   .content{padding:14px 16px;}
   .metrics-grid{grid-template-columns:repeat(2,1fr);gap:10px;}
@@ -267,18 +294,19 @@ tr:hover td{background:rgba(234,229,219,0.3);}
     </div>
     <nav class="nav">
       <div class="nav-section">Stratégie</div>
-      <div class="nav-item active" onclick="goPage('dashboard')"><span class="nie">🌸</span>Vue d'ensemble</div>
+      <div class="nav-item active" onclick="goPage('dashboard')"><span class="nie">🌸</span><span class="nl">Vue d'ensemble</span></div>
       <div class="nav-section">Contenu</div>
-      <div class="nav-item" onclick="goPage('calendrier')"><span class="nie">📅</span>Calendrier</div>
-      <div class="nav-item" onclick="goPage('kanban')"><span class="nie">🎬</span>Production</div>
-      <div class="nav-item" onclick="goPage('liste')"><span class="nie">📋</span>Tous les contenus</div>
+      <div class="nav-item" onclick="goPage('calendrier')"><span class="nie">📅</span><span class="nl">Calendrier</span></div>
+      <div class="nav-item" onclick="goPage('kanban')"><span class="nie">🎬</span><span class="nl">Production</span></div>
+      <div class="nav-item" onclick="goPage('liste')"><span class="nie">📋</span><span class="nl">Tous les contenus</span></div>
+      <div class="nav-item" onclick="goPage('tournage')"><span class="nie">🎥</span><span class="nl">Planning tournage</span></div>
       <div class="nav-section">Créativité</div>
-      <div class="nav-item" onclick="goPage('inspiration')"><span class="nie">💡</span>Inspiration & Idées</div>
-      <div class="nav-item" onclick="goPage('hooks')"><span class="nie">🎣</span>Banque de hooks</div>
+      <div class="nav-item" onclick="goPage('inspiration')"><span class="nie">💡</span><span class="nl">Inspiration & Idées</span></div>
+      <div class="nav-item" onclick="goPage('hooks')"><span class="nie">🎣</span><span class="nl">Banque de hooks</span></div>
       <div class="nav-section">Analyse</div>
-      <div class="nav-item" onclick="goPage('stats')"><span class="nie">📊</span>Statistiques</div>
+      <div class="nav-item" onclick="goPage('stats')"><span class="nie">📊</span><span class="nl">Statistiques</span></div>
       <div class="nav-section">Paramètres</div>
-      <div class="nav-item" onclick="goPage('piliers')"><span class="nie">⚙️</span>Piliers & stratégie</div>
+      <div class="nav-item" onclick="goPage('piliers')"><span class="nie">⚙️</span><span class="nl">Piliers & stratégie</span></div>
     </nav>
   </aside>
 
@@ -327,6 +355,13 @@ tr:hover td{background:rgba(234,229,219,0.3);}
           </tr></thead>
           <tbody id="liste-body"></tbody>
         </table></div></div>
+      </div>
+
+      <!-- PLANNING TOURNAGE -->
+      <div id="page-tournage" class="page">
+        <input type="file" id="tournage-csv-input" accept=".csv,text/csv" style="display:none" onchange="importTournageCSV(this)">
+        <div id="tournage-summary" style="margin-bottom:16px"></div>
+        <div id="tournage-list"></div>
       </div>
 
       <!-- INSPIRATION -->
@@ -566,7 +601,121 @@ function viderHooks(){
   if(!confirm(`Vider les ${n} hook(s) ?\n\nCette action est irréversible. Pense à exporter en CSV avant si tu veux garder une copie.`))return;
   D.hooks_banque=[];saveAll().then(()=>renderHooks());
 }
-function renderAll(){renderDashboard();renderCalendrier();renderKanban();renderListe();renderInspo();renderHooks();renderStats();renderPiliers();}
+
+// ── PLANNING TOURNAGE ──
+function tournageGroups(){
+  const groups=[];const map={};
+  (D.tournage||[]).forEach(b=>{
+    const key=b.creneau||'(sans créneau)';
+    if(!map[key]){map[key]={creneau:key,blocs:[]};groups.push(map[key]);}
+    map[key].blocs.push(b);
+  });
+  return groups;
+}
+function renderTournage(){
+  const list=D.tournage||[];
+  const sumEl=document.getElementById('tournage-summary');
+  const listEl=document.getElementById('tournage-list');
+  if(!listEl)return;
+  if(!list.length){
+    sumEl.innerHTML='';
+    listEl.innerHTML=`<div class="tj-empty">Aucun bloc de tournage.<br>Importe ton planning en CSV avec le bouton 📥, ou télécharge le modèle 📄.</div>`;
+    return;
+  }
+  const totMin=list.reduce((s,b)=>s+(parseInt(b.duree)||0),0);
+  const done=list.filter(b=>b.done).length;
+  const doneMin=list.filter(b=>b.done).reduce((s,b)=>s+(parseInt(b.duree)||0),0);
+  sumEl.innerHTML=`<div class="tj-sum">
+    <div class="tj-sum-card"><div class="tj-sum-val">${list.length}</div><div class="tj-sum-lbl">Blocs</div></div>
+    <div class="tj-sum-card"><div class="tj-sum-val">${done}/${list.length}</div><div class="tj-sum-lbl">Tournés</div></div>
+    <div class="tj-sum-card"><div class="tj-sum-val">${fmtDuree(totMin)}</div><div class="tj-sum-lbl">Durée totale</div></div>
+    <div class="tj-sum-card"><div class="tj-sum-val">${fmtDuree(doneMin)}</div><div class="tj-sum-lbl">Déjà tourné</div></div>
+  </div>`;
+  listEl.innerHTML=tournageGroups().map(g=>{
+    const gMin=g.blocs.reduce((s,b)=>s+(parseInt(b.duree)||0),0);
+    const gDone=g.blocs.filter(b=>b.done).length;
+    return `<div class="tj-group">
+      <div class="tj-head">
+        <div class="tj-head-title">${esc(g.creneau)}</div>
+        <div class="tj-head-meta">${gDone}/${g.blocs.length} · ${fmtDuree(gMin)}</div>
+      </div>
+      ${g.blocs.map(b=>{
+        const gi=(D.tournage.indexOf(b));
+        const mats=(b.materiel||[]);
+        return `<div class="tj-row${b.done?' done':''}">
+          <input type="checkbox" class="tj-check" ${b.done?'checked':''} onchange="toggleTournage(${gi})">
+          <div class="tj-body">
+            <div class="tj-title">${b.type?typeBadge(b.type)+' ':''}${esc(b.bloc)}</div>
+            <div class="tj-meta">${b.lieu?`<span>📍 ${esc(b.lieu)}</span>`:''}${b.duree?`<span class="tj-duree">${esc(String(b.duree))} min</span>`:''}</div>
+            ${mats.length?`<div class="tj-mats">${mats.map(m=>`<span class="tj-mat">${esc(m)}</span>`).join('')}</div>`:''}
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }).join('');
+}
+function fmtDuree(m){m=parseInt(m)||0;if(m<60)return m+' min';const h=Math.floor(m/60),r=m%60;return r?`${h}h${String(r).padStart(2,'0')}`:`${h}h`;}
+function toggleTournage(i){D.tournage[i].done=!D.tournage[i].done;saveAll().then(()=>renderTournage());}
+function resetTournageChecks(){
+  if(!(D.tournage||[]).length)return;
+  D.tournage.forEach(b=>b.done=false);
+  saveAll().then(()=>renderTournage());
+}
+function viderTournage(){
+  const n=(D.tournage||[]).length;
+  if(!n){toast('Aucun bloc à vider');return;}
+  if(!confirm(`Vider les ${n} bloc(s) de tournage ?\n\nCette action est irréversible. Pense à exporter en CSV avant si tu veux garder une copie.`))return;
+  D.tournage=[];saveAll().then(()=>renderTournage());
+}
+function importTournageCSV(input){
+  readCSV(input,(rows,head)=>{
+    const iCreneau=findCol(head,['creneau','créneau','jour','session']);
+    const iBloc=findCol(head,['bloc','contenu','titre','concept']);
+    if(iBloc<0){toast('Colonne "bloc" introuvable — utilise le modèle 📄');return;}
+    const iLieu=findCol(head,['lieu','endroit']),iMat=findCol(head,['materiel','matériel','materiaux']),
+          iDuree=findCol(head,['duree','durée','min','minutes']),iType=findCol(head,['type']);
+    const existants=new Set((D.tournage||[]).map(b=>norm(b.creneau)+'|'+norm(b.bloc)));
+    let added=0,dup=0,vides=0;
+    if(!D.tournage)D.tournage=[];
+    rows.forEach((r,n)=>{
+      const bloc=(r[iBloc]||'').trim();
+      if(!bloc){vides++;return;}
+      const creneau=iCreneau>=0?(r[iCreneau]||'').trim():'';
+      const key=norm(creneau)+'|'+norm(bloc);
+      if(existants.has(key)){dup++;return;}
+      existants.add(key);
+      const mats=iMat>=0?(r[iMat]||'').split(/[|,]/).map(s=>s.trim()).filter(Boolean):[];
+      D.tournage.push({
+        id:'TJ'+Date.now().toString().slice(-5)+n,
+        creneau:creneau,
+        bloc:bloc,
+        lieu:iLieu>=0?(r[iLieu]||'').trim():'',
+        materiel:mats,
+        duree:iDuree>=0?(parseInt(r[iDuree])||0):0,
+        type:iType>=0?resolveType(r[iType]):'',
+        done:false
+      });
+      added++;
+    });
+    if(importReport(added,dup,vides))saveAll().then(()=>renderTournage());
+  });
+}
+function exportTournageCSV(){
+  const rows=[['creneau','type','bloc','lieu','materiel','duree']];
+  (D.tournage||[]).forEach(b=>rows.push([b.creneau||'',b.type||'',b.bloc||'',b.lieu||'',(b.materiel||[]).join(', '),b.duree||0]));
+  csvDownload(rows,'planning_tournage.csv');
+}
+function downloadTournageTemplate(){
+  csvDownload([
+    ['creneau','type','bloc','lieu','materiel','duree'],
+    ['Vendredi 18h-21h','Reel','recommencer qu\'à fabriquer','Atelier','tissu, fil, machine, ciseaux, pochette en cours, livre','30'],
+    ['Vendredi 18h-21h','Reel','combien d\'étapes','Atelier','machine, tissu, patron, crayon textile, ciseaux','40'],
+    ['Vendredi 18h-21h','Carrousel','un loisir doit être utile','Maison int.','table bois, tasse, livre, carnet, plante, bougie','35'],
+    ['Samedi 9h-12h','Carrousel','arroser mes fleurs','Jardin','arrosoir, pots, tasse, banc','35'],
+    ['Samedi 9h-12h','Reel','je passais devant','Extérieur','carnet coloriage, crayons, plaid, tote','25']
+  ],'modele_planning_tournage.csv');
+}
+function renderAll(){if(!D.tournage)D.tournage=[];renderDashboard();renderCalendrier();renderKanban();renderListe();renderTournage();renderInspo();renderHooks();renderStats();renderPiliers();}
 
 // ── NAV ──
 const PAGES={
@@ -574,6 +723,7 @@ const PAGES={
   'calendrier':{title:'Calendrier',actions:`<button class="btn btn-primary btn-sm" onclick="openModalContenu()">+ Nouveau contenu</button>`},
   'kanban':{title:'Production 🎬',actions:`<button class="btn btn-primary btn-sm" onclick="openModalContenu()">+ Nouveau contenu</button><button class="btn btn-outline btn-sm" onclick="document.getElementById('contenus-csv-input').click()">📥 Importer CSV</button><button class="btn btn-outline btn-sm" onclick="exportContenusCSV()">📤 Exporter</button><button class="btn btn-outline btn-sm" onclick="downloadContenusTemplate()">📄 Modèle</button><button class="btn btn-danger btn-sm" onclick="viderContenus()">🗑️ Vider</button>`},
   'liste':{title:'Tous les contenus',actions:`<button class="btn btn-primary btn-sm" onclick="openModalContenu()">+ Nouveau contenu</button><button class="btn btn-outline btn-sm" onclick="document.getElementById('contenus-csv-input').click()">📥 Importer CSV</button><button class="btn btn-outline btn-sm" onclick="exportContenusCSV()">📤 Exporter</button><button class="btn btn-outline btn-sm" onclick="downloadContenusTemplate()">📄 Modèle</button><button class="btn btn-danger btn-sm" onclick="viderContenus()">🗑️ Vider</button>`},
+  'tournage':{title:'Planning tournage 🎥',actions:`<button class="btn btn-outline btn-sm" onclick="document.getElementById('tournage-csv-input').click()">📥 Importer CSV</button><button class="btn btn-outline btn-sm" onclick="exportTournageCSV()">📤 Exporter</button><button class="btn btn-outline btn-sm" onclick="downloadTournageTemplate()">📄 Modèle</button><button class="btn btn-outline btn-sm" onclick="resetTournageChecks()">↺ Décocher</button><button class="btn btn-danger btn-sm" onclick="viderTournage()">🗑️ Vider</button>`},
   'inspiration':{title:'Inspiration & Idées 💡',actions:`<span id="inspo-actions" style="display:flex;gap:8px"></span>`},
   'hooks':{title:'Banque de hooks 🎣',actions:`<button class="btn btn-primary btn-sm" onclick="openModal('modal-hook','new')">+ Hook</button><button class="btn btn-outline btn-sm" onclick="document.getElementById('hooks-csv-input').click()">📥 Importer CSV</button><button class="btn btn-outline btn-sm" onclick="exportHooksCSV()">📤 Exporter</button><button class="btn btn-outline btn-sm" onclick="downloadHooksTemplate()">📄 Modèle</button><button class="btn btn-danger btn-sm" onclick="viderHooks()">🗑️ Vider</button>`},
   'stats':{title:'Statistiques 📊',actions:''},
