@@ -238,14 +238,6 @@ tr:hover td{background:rgba(234,229,219,0.3);}
 .tj-plan-check{width:15px;height:15px;margin-top:2px;flex-shrink:0;accent-color:var(--sage);cursor:pointer;}
 .tj-plan-text{font-size:12.5px;color:var(--text-muted);line-height:1.35;flex:1;min-width:0;}
 .tj-plan.done .tj-plan-text{text-decoration:line-through;color:var(--text-hint);}
-.tj-plan-ctrl{display:flex;gap:2px;flex-shrink:0;}
-.tj-plan-ctrl button{border:1px solid var(--border-md);background:var(--white);color:var(--text-muted);border-radius:6px;width:22px;height:22px;font-size:11px;cursor:pointer;line-height:1;padding:0;display:flex;align-items:center;justify-content:center;}
-.tj-plan-ctrl button:disabled{opacity:.28;cursor:default;}
-.tj-plan-ctrl button:hover:not(:disabled){border-color:var(--sage);color:var(--sage);}
-.mp-block{width:100%;text-align:left;background:var(--white);border:1px solid var(--border-md);border-radius:10px;padding:10px 12px;margin-bottom:6px;cursor:pointer;font-family:'Nunito',sans-serif;transition:all .15s;}
-.mp-block:hover{border-color:var(--sage);background:var(--sage-light);}
-.mp-block-cren{font-size:11px;color:var(--text-hint);}
-.mp-block-name{font-size:13px;font-weight:600;color:var(--text);margin-top:1px;}
 .tj-gh{color:var(--amber);font-weight:700;font-size:10.5px;background:var(--amber-light);border-radius:20px;padding:0 7px;margin-left:4px;white-space:nowrap;}
 .tj-meta{font-size:11.5px;color:var(--text-muted);margin-top:3px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
 .tj-mats{margin-top:6px;display:flex;gap:4px;flex-wrap:wrap;}
@@ -591,18 +583,6 @@ tr:hover td{background:rgba(234,229,219,0.3);}
   </div>
 </div>
 
-<!-- Modal déplacer un plan -->
-<div class="modal-overlay" id="modal-moveplan">
-  <div class="modal">
-    <h3>Déplacer le plan vers…</h3>
-    <div style="font-size:12.5px;color:var(--text-muted);font-style:italic;margin-bottom:12px" id="mp-plan-text"></div>
-    <div id="mp-blocks" style="max-height:50vh;overflow-y:auto"></div>
-    <div class="modal-actions">
-      <button class="btn btn-outline" onclick="closeModal('modal-moveplan')">Annuler</button>
-    </div>
-  </div>
-</div>
-
 <!-- Modal pilier -->
 <div class="modal-overlay" id="modal-pilier">
   <div class="modal">
@@ -697,7 +677,7 @@ function renderTournage(){
         <div class="tj-head-title">${esc(g.creneau)}</div>
         <div class="tj-head-meta">${gDone}/${g.blocs.length} blocs · ${fmtDuree(gMin)}</div>
       </div>
-      ${g.blocs.map(b=>{
+      ${g.blocs.map((b,bpos)=>{
         const gi=D.tournage.indexOf(b);
         const plans=b.plans||[];
         const done=tjBlockDone(b);
@@ -709,6 +689,8 @@ function renderTournage(){
               <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start">
                 <div class="tj-title">${b.type?typeBadge(b.type)+' ':''}${esc(b.bloc)}</div>
                 <div style="display:flex;gap:4px;flex-shrink:0">
+                  <button class="btn btn-outline btn-sm btn-icon" onclick="moveBloc(${gi},-1)" ${bpos===0?'disabled':''} title="Monter dans le créneau">↑</button>
+                  <button class="btn btn-outline btn-sm btn-icon" onclick="moveBloc(${gi},1)" ${bpos===g.blocs.length-1?'disabled':''} title="Descendre dans le créneau">↓</button>
                   <button class="btn btn-outline btn-sm btn-icon" onclick="openTournageBloc('${b.id}')" title="Modifier">✎</button>
                   <button class="btn btn-danger btn-sm btn-icon" onclick="deleteTournageBloc('${b.id}')" title="Supprimer">✕</button>
                 </div>
@@ -719,11 +701,6 @@ function renderTournage(){
                 <div class="tj-plan${p.done?' done':''}">
                   <input type="checkbox" class="tj-plan-check" ${p.done?'checked':''} onchange="toggleTournagePlan(${gi},${pi})">
                   <span class="tj-plan-text">${esc(p.texte)}${ghTag(p.texte)}</span>
-                  <span class="tj-plan-ctrl">
-                    <button onclick="movePlan(${gi},${pi},-1)" ${pi===0?'disabled':''} title="Monter">↑</button>
-                    <button onclick="movePlan(${gi},${pi},1)" ${pi===plans.length-1?'disabled':''} title="Descendre">↓</button>
-                    <button onclick="openMovePlan(${gi},${pi})" title="Déplacer vers un autre bloc">⇄</button>
-                  </span>
                 </div>`).join('')}</div>`:''}
             </div>
           </div>
@@ -734,37 +711,13 @@ function renderTournage(){
 }
 function fmtDuree(m){m=parseInt(m)||0;if(m<60)return m+' min';const h=Math.floor(m/60),r=m%60;return r?`${h}h${String(r).padStart(2,'0')}`:`${h}h`;}
 function toggleTournagePlan(bi,pi){D.tournage[bi].plans[pi].done=!D.tournage[bi].plans[pi].done;saveAll().then(()=>renderTournage());}
-// Réordonner un plan dans son bloc (dir = -1 monter, +1 descendre)
-function movePlan(bi,pi,dir){
-  const plans=D.tournage[bi].plans;
-  const j=pi+dir;
-  if(j<0||j>=plans.length)return;
-  [plans[pi],plans[j]]=[plans[j],plans[pi]];
-  saveAll().then(()=>renderTournage());
-}
-// Déplacer un plan vers un autre bloc
-let movePending=null;
-function openMovePlan(bi,pi){
-  movePending={bi,pi};
-  const p=D.tournage[bi].plans[pi];
-  document.getElementById('mp-plan-text').textContent='« '+p.texte+' »';
-  const html=D.tournage.map((b,idx)=>{
-    if(idx===bi)return '';
-    return `<button class="mp-block" onclick="doMovePlan(${idx})">
-      <div class="mp-block-cren">${esc(b.creneau||'(sans créneau)')}</div>
-      <div class="mp-block-name">${b.type?b.type+' · ':''}${esc(b.bloc)}</div>
-    </button>`;
-  }).join('');
-  document.getElementById('mp-blocks').innerHTML=html||`<div style="color:var(--text-hint);font-size:12.5px;font-style:italic;padding:10px 0">Aucun autre bloc où déplacer ce plan. Crée un bloc d'abord.</div>`;
-  document.getElementById('modal-moveplan').classList.add('open');
-}
-function doMovePlan(targetBi){
-  if(!movePending)return;
-  const {bi,pi}=movePending;
-  const [p]=D.tournage[bi].plans.splice(pi,1);
-  D.tournage[targetBi].plans.push(p);
-  movePending=null;
-  closeModal('modal-moveplan');
+// Réordonner un bloc à l'intérieur de son créneau (dir = -1 monter, +1 descendre)
+function moveBloc(gi,dir){
+  const b=D.tournage[gi];
+  let j=gi+dir;
+  while(j>=0&&j<D.tournage.length&&D.tournage[j].creneau!==b.creneau)j+=dir;
+  if(j<0||j>=D.tournage.length)return;
+  [D.tournage[gi],D.tournage[j]]=[D.tournage[j],D.tournage[gi]];
   saveAll().then(()=>renderTournage());
 }
 function toggleTournageBloc(bi){
