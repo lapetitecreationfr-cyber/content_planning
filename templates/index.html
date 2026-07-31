@@ -556,6 +556,33 @@ tr:hover td{background:rgba(234,229,219,0.3);}
   </div>
 </div>
 
+<!-- Modal bloc tournage -->
+<div class="modal-overlay" id="modal-tournage">
+  <div class="modal">
+    <h3 id="mtj-title">Nouveau bloc de tournage 🎥</h3>
+    <div class="form-group"><label>Créneau</label>
+      <input type="text" id="tj-creneau" list="tj-creneau-list" placeholder="ex: Vendredi 18h-21h">
+      <datalist id="tj-creneau-list"></datalist>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Type</label><select id="tj-type"><option value="">—</option><option>Reel</option><option>Story</option><option>Carrousel</option><option>Post</option></select></div>
+      <div class="form-group"><label>Durée (min)</label><input type="number" id="tj-duree" min="0" placeholder="30"></div>
+    </div>
+    <div class="form-group"><label>Bloc</label><input type="text" id="tj-bloc" placeholder="ex: recommencer qu'à fabriquer"></div>
+    <div class="form-group"><label>Lieu</label><input type="text" id="tj-lieu" placeholder="ex: Atelier, Jardin, Maison int."></div>
+    <div class="form-group"><label>Matériel <span style="color:var(--text-hint);font-weight:400;font-size:11px">(séparé par des virgules)</span></label><textarea id="tj-materiel" rows="2" placeholder="tissu, fil, machine, ciseaux..."></textarea></div>
+    <div class="form-group"><label>Plans</label>
+      <div id="tj-plans-edit"></div>
+      <button class="kanban-add" style="margin-top:6px" onclick="addTjPlan()">+ Ajouter un plan</button>
+    </div>
+    <input type="hidden" id="tj-edit-id">
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal('modal-tournage')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveTournageBloc()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
 <!-- Modal pilier -->
 <div class="modal-overlay" id="modal-pilier">
   <div class="modal">
@@ -659,7 +686,13 @@ function renderTournage(){
           <div class="tj-block-head">
             <input type="checkbox" class="tj-check" ${done?'checked':''} onchange="toggleTournageBloc(${gi})" title="Tout cocher / décocher">
             <div class="tj-body">
-              <div class="tj-title">${b.type?typeBadge(b.type)+' ':''}${esc(b.bloc)}</div>
+              <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start">
+                <div class="tj-title">${b.type?typeBadge(b.type)+' ':''}${esc(b.bloc)}</div>
+                <div style="display:flex;gap:4px;flex-shrink:0">
+                  <button class="btn btn-outline btn-sm btn-icon" onclick="openTournageBloc('${b.id}')" title="Modifier">✎</button>
+                  <button class="btn btn-danger btn-sm btn-icon" onclick="deleteTournageBloc('${b.id}')" title="Supprimer">✕</button>
+                </div>
+              </div>
               <div class="tj-meta">${b.lieu?`<span>📍 ${esc(b.lieu)}</span>`:''}${b.duree?`<span class="tj-duree">${esc(String(b.duree))} min</span>`:''}${plans.length?`<span>🎬 ${pDone}/${plans.length} plans</span>`:''}</div>
               ${(b.materiel||[]).length?`<div class="tj-mats">${b.materiel.map(m=>`<span class="tj-mat">${esc(m)}</span>`).join('')}</div>`:''}
               ${plans.length?`<div class="tj-plans">${plans.map((p,pi)=>`
@@ -692,6 +725,78 @@ function viderTournage(){
   if(!n){toast('Aucun bloc à vider');return;}
   if(!confirm(`Vider les ${n} bloc(s) de tournage ?\n\nCette action est irréversible. Pense à exporter en CSV avant si tu veux garder une copie.`))return;
   D.tournage=[];saveAll().then(()=>renderTournage());
+}
+
+// ── ÉDITION D'UN BLOC ──
+let tjPlans=[];
+function openTournageBloc(id){
+  if(!D.tournage)D.tournage=[];
+  // datalist des créneaux existants
+  const creneaux=[...new Set(D.tournage.map(b=>b.creneau).filter(Boolean))];
+  document.getElementById('tj-creneau-list').innerHTML=creneaux.map(c=>`<option value="${esc(c)}">`).join('');
+  if(id){
+    const b=D.tournage.find(x=>x.id===id);if(!b)return;
+    document.getElementById('mtj-title').textContent='Modifier le bloc 🎥';
+    document.getElementById('tj-creneau').value=b.creneau||'';
+    document.getElementById('tj-type').value=b.type||'';
+    document.getElementById('tj-duree').value=b.duree||'';
+    document.getElementById('tj-bloc').value=b.bloc||'';
+    document.getElementById('tj-lieu').value=b.lieu||'';
+    document.getElementById('tj-materiel').value=(b.materiel||[]).join(', ');
+    document.getElementById('tj-edit-id').value=id;
+    tjPlans=(b.plans||[]).map(p=>({texte:p.texte||'',done:!!p.done}));
+  } else {
+    document.getElementById('mtj-title').textContent='Nouveau bloc de tournage 🎥';
+    ['tj-creneau','tj-type','tj-duree','tj-bloc','tj-lieu','tj-materiel'].forEach(f=>document.getElementById(f).value='');
+    document.getElementById('tj-edit-id').value='';
+    tjPlans=[];
+  }
+  renderTjPlans();
+  document.getElementById('modal-tournage').classList.add('open');
+}
+function renderTjPlans(){
+  document.getElementById('tj-plans-edit').innerHTML=tjPlans.length?tjPlans.map((p,i)=>`
+    <div class="shot-row">
+      <span class="shot-num">${i+1}</span>
+      <input type="text" class="shot-input" value="${esc(p.texte)}" placeholder="ex: mains sur tissu, lisser le pli, détail" oninput="tjPlans[${i}].texte=this.value">
+      <button class="shot-del" onclick="delTjPlan(${i})">✕</button>
+    </div>`).join(''):`<div style="color:var(--text-hint);font-size:12.5px;font-style:italic;padding:8px 0">Aucun plan. Ajoute-en ou laisse vide.</div>`;
+}
+function addTjPlan(){
+  tjPlans.push({texte:'',done:false});
+  renderTjPlans();
+  const inputs=document.querySelectorAll('#tj-plans-edit .shot-input');
+  if(inputs.length)inputs[inputs.length-1].focus();
+}
+function delTjPlan(i){tjPlans.splice(i,1);renderTjPlans();}
+function saveTournageBloc(){
+  const bloc=document.getElementById('tj-bloc').value.trim();
+  if(!bloc){toast('Le nom du bloc est requis');return;}
+  const obj={
+    creneau:document.getElementById('tj-creneau').value.trim(),
+    type:document.getElementById('tj-type').value,
+    duree:parseInt(document.getElementById('tj-duree').value)||0,
+    bloc:bloc,
+    lieu:document.getElementById('tj-lieu').value.trim(),
+    materiel:document.getElementById('tj-materiel').value.split(/[|,]/).map(s=>s.trim()).filter(Boolean),
+    plans:tjPlans.filter(p=>p.texte.trim()).map(p=>({texte:p.texte.trim(),done:!!p.done}))
+  };
+  const id=document.getElementById('tj-edit-id').value;
+  if(id){
+    const b=D.tournage.find(x=>x.id===id);
+    if(b){b.creneau=obj.creneau;b.type=obj.type;b.duree=obj.duree;b.bloc=obj.bloc;b.lieu=obj.lieu;b.materiel=obj.materiel;b.plans=obj.plans;}
+  } else {
+    if(!D.tournage)D.tournage=[];
+    D.tournage.push({id:'TJ'+Date.now().toString().slice(-6),...obj,done:false});
+  }
+  closeModal('modal-tournage');
+  saveAll().then(()=>renderTournage());
+}
+function deleteTournageBloc(id){
+  const b=(D.tournage||[]).find(x=>x.id===id);if(!b)return;
+  if(!confirm(`Supprimer le bloc "${b.bloc}" ?`))return;
+  D.tournage=D.tournage.filter(x=>x.id!==id);
+  saveAll().then(()=>renderTournage());
 }
 // Import : une ligne = un plan. Les lignes de même créneau+bloc sont regroupées.
 function importTournageCSV(input){
@@ -770,7 +875,7 @@ const PAGES={
   'calendrier':{title:'Calendrier',actions:`<button class="btn btn-primary btn-sm" onclick="openModalContenu()">+ Nouveau contenu</button>`},
   'kanban':{title:'Production 🎬',actions:`<button class="btn btn-primary btn-sm" onclick="openModalContenu()">+ Nouveau contenu</button><button class="btn btn-outline btn-sm" onclick="document.getElementById('contenus-csv-input').click()">📥 Importer CSV</button><button class="btn btn-outline btn-sm" onclick="exportContenusCSV()">📤 Exporter</button><button class="btn btn-outline btn-sm" onclick="downloadContenusTemplate()">📄 Modèle</button><button class="btn btn-danger btn-sm" onclick="viderContenus()">🗑️ Vider</button>`},
   'liste':{title:'Tous les contenus',actions:`<button class="btn btn-primary btn-sm" onclick="openModalContenu()">+ Nouveau contenu</button><button class="btn btn-outline btn-sm" onclick="document.getElementById('contenus-csv-input').click()">📥 Importer CSV</button><button class="btn btn-outline btn-sm" onclick="exportContenusCSV()">📤 Exporter</button><button class="btn btn-outline btn-sm" onclick="downloadContenusTemplate()">📄 Modèle</button><button class="btn btn-danger btn-sm" onclick="viderContenus()">🗑️ Vider</button>`},
-  'tournage':{title:'Planning tournage 🎥',actions:`<button class="btn btn-outline btn-sm" onclick="document.getElementById('tournage-csv-input').click()">📥 Importer CSV</button><button class="btn btn-outline btn-sm" onclick="exportTournageCSV()">📤 Exporter</button><button class="btn btn-outline btn-sm" onclick="downloadTournageTemplate()">📄 Modèle</button><button class="btn btn-outline btn-sm" onclick="resetTournageChecks()">↺ Décocher</button><button class="btn btn-danger btn-sm" onclick="viderTournage()">🗑️ Vider</button>`},
+  'tournage':{title:'Planning tournage 🎥',actions:`<button class="btn btn-primary btn-sm" onclick="openTournageBloc()">+ Bloc</button><button class="btn btn-outline btn-sm" onclick="document.getElementById('tournage-csv-input').click()">📥 Importer CSV</button><button class="btn btn-outline btn-sm" onclick="exportTournageCSV()">📤 Exporter</button><button class="btn btn-outline btn-sm" onclick="downloadTournageTemplate()">📄 Modèle</button><button class="btn btn-outline btn-sm" onclick="resetTournageChecks()">↺ Décocher</button><button class="btn btn-danger btn-sm" onclick="viderTournage()">🗑️ Vider</button>`},
   'inspiration':{title:'Inspiration & Idées 💡',actions:`<span id="inspo-actions" style="display:flex;gap:8px"></span>`},
   'hooks':{title:'Banque de hooks 🎣',actions:`<button class="btn btn-primary btn-sm" onclick="openModal('modal-hook','new')">+ Hook</button><button class="btn btn-outline btn-sm" onclick="document.getElementById('hooks-csv-input').click()">📥 Importer CSV</button><button class="btn btn-outline btn-sm" onclick="exportHooksCSV()">📤 Exporter</button><button class="btn btn-outline btn-sm" onclick="downloadHooksTemplate()">📄 Modèle</button><button class="btn btn-danger btn-sm" onclick="viderHooks()">🗑️ Vider</button>`},
   'stats':{title:'Statistiques 📊',actions:''},
