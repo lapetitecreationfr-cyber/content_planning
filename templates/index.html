@@ -239,6 +239,22 @@ tr:hover td{background:rgba(234,229,219,0.3);}
 .tj-plan-text{font-size:12.5px;color:var(--text-muted);line-height:1.35;flex:1;min-width:0;}
 .tj-plan.done .tj-plan-text{text-decoration:line-through;color:var(--text-hint);}
 .tj-gh{color:var(--amber);font-weight:700;font-size:10.5px;background:var(--amber-light);border-radius:20px;padding:0 7px;margin-left:4px;white-space:nowrap;}
+.tj-group.reprog{border-color:var(--rose-mid);}
+.tj-group.reprog .tj-head{background:var(--rose-light);}
+.tj-head-meta.over{color:var(--rose);font-weight:700;}
+.tjr{border-top:1px solid var(--border);}
+.tjr-row{display:flex;align-items:center;gap:10px;padding:9px 14px;}
+.tjr-row.done{background:var(--cream);}
+.tjr-check{width:18px;height:18px;flex-shrink:0;accent-color:var(--sage);cursor:pointer;}
+.tjr-main{flex:1;min-width:0;cursor:pointer;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.tjr-chev{color:var(--text-hint);font-size:10px;flex-shrink:0;}
+.tjr-name{font-weight:700;font-size:13.5px;color:var(--text);}
+.tjr-row.done .tjr-name{text-decoration:line-through;color:var(--text-hint);}
+.tjr-meta{display:flex;gap:8px;align-items:center;font-size:11.5px;color:var(--text-muted);flex-wrap:wrap;}
+.tjr-move{font-size:11.5px;padding:5px 8px;border:1px solid var(--border-md);border-radius:8px;background:var(--white);color:var(--text-muted);cursor:pointer;max-width:160px;flex-shrink:0;font-family:'Nunito',sans-serif;}
+.tjr-move:hover{border-color:var(--sage);}
+.tjr-detail{padding:2px 14px 12px 42px;background:var(--cream);}
+.tjr-actionbar{display:flex;gap:5px;padding:8px 0;flex-wrap:wrap;}
 .tj-meta{font-size:11.5px;color:var(--text-muted);margin-top:3px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
 .tj-mats{margin-top:6px;display:flex;gap:4px;flex-wrap:wrap;}
 .tj-mat{background:var(--cream);border:1px solid var(--border);border-radius:20px;padding:1px 9px;font-size:10.5px;color:var(--text-muted);}
@@ -287,6 +303,9 @@ tr:hover td{background:rgba(234,229,219,0.3);}
   .stat-input-grid{grid-template-columns:1fr 1fr;}
   /* Piliers */
   #page-piliers > div[style*="grid-template-columns:1fr 1fr"]{grid-template-columns:1fr!important;}
+  .tjr-row{flex-wrap:wrap;}
+  .tjr-move{max-width:none;flex:1 1 100%;order:3;}
+  .tjr-detail{padding-left:20px;}
 }
 </style>
 </head>
@@ -637,16 +656,33 @@ function viderHooks(){
 
 // ── PLANNING TOURNAGE ──
 function tjBlockDone(b){return (b.plans&&b.plans.length)?b.plans.every(p=>p.done):!!b.done;}
+const TJ_REPROG='🕒 À reprogrammer';
+function tjCreneauKey(b){return (b.creneau||'').trim()||TJ_REPROG;}
 function tournageGroups(){
   const groups=[];const map={};
   (D.tournage||[]).forEach(b=>{
-    const key=b.creneau||'(sans créneau)';
+    const key=tjCreneauKey(b);
     if(!map[key]){map[key]={creneau:key,blocs:[]};groups.push(map[key]);}
     map[key].blocs.push(b);
   });
+  // "À reprogrammer" toujours en dernier
+  groups.sort((a,b)=>(a.creneau===TJ_REPROG?1:0)-(b.creneau===TJ_REPROG?1:0));
   return groups;
 }
+function creneauCapacity(name){
+  const m=String(name).match(/(\d{1,2})\s*h\s*(\d{2})?\s*[-–à]+\s*(\d{1,2})\s*h\s*(\d{2})?/i);
+  if(!m)return null;
+  const start=(+m[1])*60+(+(m[2]||0));let end=(+m[3])*60+(+(m[4]||0));
+  if(end<=start)end+=24*60;
+  return end-start;
+}
 function ghTag(t){return /golden hour|coucher de soleil|fin de journée/i.test(t)?' <span class="tj-gh">☀️ golden hour</span>':'';}
+let tjExpanded=new Set();
+function toggleTjExpand(id){if(tjExpanded.has(id))tjExpanded.delete(id);else tjExpanded.add(id);renderTournage();}
+function expandAllTj(v){
+  if(v)(D.tournage||[]).forEach(b=>tjExpanded.add(b.id));else tjExpanded.clear();
+  renderTournage();
+}
 function renderTournage(){
   const list=D.tournage||[];
   const sumEl=document.getElementById('tournage-summary');
@@ -654,76 +690,98 @@ function renderTournage(){
   if(!listEl)return;
   if(!list.length){
     sumEl.innerHTML='';
-    listEl.innerHTML=`<div class="tj-empty">Aucun bloc de tournage.<br>Importe ton planning en CSV avec le bouton 📥, ou télécharge le modèle 📄.</div>`;
+    listEl.innerHTML=`<div class="tj-empty">Aucun bloc de tournage.<br>Importe ton planning en CSV avec le bouton 📥, ajoute un bloc avec ＋ Bloc, ou télécharge le modèle 📄.</div>`;
     return;
   }
   const totMin=list.reduce((s,b)=>s+(parseInt(b.duree)||0),0);
   const doneBlocs=list.filter(tjBlockDone);
-  const doneMin=doneBlocs.reduce((s,b)=>s+(parseInt(b.duree)||0),0);
-  const totPlans=list.reduce((s,b)=>s+((b.plans||[]).length),0);
-  const donePlans=list.reduce((s,b)=>s+((b.plans||[]).filter(p=>p.done).length),0);
+  const reprog=list.filter(b=>tjCreneauKey(b)===TJ_REPROG).length;
+  const allOpen=list.every(b=>tjExpanded.has(b.id));
   sumEl.innerHTML=`<div class="tj-sum">
-    <div class="tj-sum-card"><div class="tj-sum-val">${list.length}</div><div class="tj-sum-lbl">Blocs</div></div>
     <div class="tj-sum-card"><div class="tj-sum-val">${doneBlocs.length}/${list.length}</div><div class="tj-sum-lbl">Blocs tournés</div></div>
-    ${totPlans?`<div class="tj-sum-card"><div class="tj-sum-val">${donePlans}/${totPlans}</div><div class="tj-sum-lbl">Plans tournés</div></div>`:''}
     <div class="tj-sum-card"><div class="tj-sum-val">${fmtDuree(totMin)}</div><div class="tj-sum-lbl">Durée totale</div></div>
-    <div class="tj-sum-card"><div class="tj-sum-val">${fmtDuree(doneMin)}</div><div class="tj-sum-lbl">Déjà tourné</div></div>
+    ${reprog?`<div class="tj-sum-card" style="border-color:var(--rose-mid)"><div class="tj-sum-val" style="color:var(--rose)">${reprog}</div><div class="tj-sum-lbl">À reprogrammer</div></div>`:''}
+    <div class="tj-sum-card" style="display:flex;align-items:center;justify-content:center;cursor:pointer" onclick="expandAllTj(${allOpen?'false':'true'})"><div style="font-size:12.5px;font-weight:700;color:var(--sage)">${allOpen?'▲ Tout replier':'▼ Tout déplier'}</div></div>
   </div>`;
+  // options de déplacement (créneaux existants)
+  const creneaux=[...new Set(list.map(b=>(b.creneau||'').trim()).filter(Boolean))];
   listEl.innerHTML=tournageGroups().map(g=>{
+    const isReprog=g.creneau===TJ_REPROG;
     const gMin=g.blocs.reduce((s,b)=>s+(parseInt(b.duree)||0),0);
     const gDone=g.blocs.filter(tjBlockDone).length;
-    return `<div class="tj-group">
+    const cap=creneauCapacity(g.creneau);
+    const over=cap&&gMin>cap;
+    const dureeTxt=cap?`${fmtDuree(gMin)} / ${fmtDuree(cap)}`:fmtDuree(gMin);
+    return `<div class="tj-group${isReprog?' reprog':''}">
       <div class="tj-head">
         <div class="tj-head-title">${esc(g.creneau)}</div>
-        <div class="tj-head-meta">${gDone}/${g.blocs.length} blocs · ${fmtDuree(gMin)}</div>
+        <div class="tj-head-meta ${over?'over':''}">${gDone}/${g.blocs.length} tournés · ⏱ ${dureeTxt}${over?' ⚠️':''}</div>
       </div>
       ${g.blocs.map((b,bpos)=>{
-        const gi=D.tournage.indexOf(b);
-        const plans=b.plans||[];
-        const done=tjBlockDone(b);
-        const pDone=plans.filter(p=>p.done).length;
-        return `<div class="tj-block${done?' done':''}">
-          <div class="tj-block-head">
-            <input type="checkbox" class="tj-check" ${done?'checked':''} onchange="toggleTournageBloc(${gi})" title="Tout cocher / décocher">
-            <div class="tj-body">
-              <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start">
-                <div class="tj-title">${b.type?typeBadge(b.type)+' ':''}${esc(b.bloc)}</div>
-                <div style="display:flex;gap:4px;flex-shrink:0">
-                  <button class="btn btn-outline btn-sm btn-icon" onclick="moveBloc(${gi},-1)" ${bpos===0?'disabled':''} title="Monter dans le créneau">↑</button>
-                  <button class="btn btn-outline btn-sm btn-icon" onclick="moveBloc(${gi},1)" ${bpos===g.blocs.length-1?'disabled':''} title="Descendre dans le créneau">↓</button>
-                  <button class="btn btn-outline btn-sm btn-icon" onclick="openTournageBloc('${b.id}')" title="Modifier">✎</button>
-                  <button class="btn btn-danger btn-sm btn-icon" onclick="deleteTournageBloc('${b.id}')" title="Supprimer">✕</button>
-                </div>
-              </div>
-              <div class="tj-meta">${b.lieu?`<span>📍 ${esc(b.lieu)}</span>`:''}${b.duree?`<span class="tj-duree">${esc(String(b.duree))} min</span>`:''}${plans.length?`<span>🎬 ${pDone}/${plans.length} plans</span>`:''}</div>
-              ${(b.materiel||[]).length?`<div class="tj-mats">${b.materiel.map(m=>`<span class="tj-mat">${esc(m)}</span>`).join('')}</div>`:''}
-              ${plans.length?`<div class="tj-plans">${plans.map((p,pi)=>`
-                <div class="tj-plan${p.done?' done':''}">
-                  <input type="checkbox" class="tj-plan-check" ${p.done?'checked':''} onchange="toggleTournagePlan(${gi},${pi})">
-                  <span class="tj-plan-text">${esc(p.texte)}${ghTag(p.texte)}</span>
-                </div>`).join('')}</div>`:''}
+        const plans=b.plans||[];const done=tjBlockDone(b);const pDone=plans.filter(p=>p.done).length;
+        const open=tjExpanded.has(b.id);
+        // select de déplacement : autres créneaux + reprog + nouveau
+        const opts=[`<option value="">déplacer vers…</option>`,
+          (!isReprog?`<option value="__reprog__">🕒 À reprogrammer</option>`:''),
+          ...creneaux.filter(c=>c!==(b.creneau||'').trim()).map(c=>`<option value="${esc(c)}">${esc(c)}</option>`),
+          `<option value="__new__">＋ Autre créneau…</option>`].join('');
+        return `<div class="tjr">
+          <div class="tjr-row${done?' done':''}">
+            <input type="checkbox" class="tjr-check" ${done?'checked':''} onchange="toggleTjBloc('${b.id}')" title="Marquer comme tourné">
+            <div class="tjr-main" onclick="toggleTjExpand('${b.id}')">
+              <span class="tjr-chev">${open?'▾':'▸'}</span>
+              <span class="tjr-name">${b.type?typeBadge(b.type)+' ':''}${esc(b.bloc)}</span>
+              <span class="tjr-meta">${b.lieu?`<span>📍 ${esc(b.lieu)}</span>`:''}${b.duree?`<span class="tj-duree">${esc(String(b.duree))} min</span>`:''}${plans.length?`<span>🎬 ${pDone}/${plans.length}</span>`:''}</span>
             </div>
+            <select class="tjr-move" title="Déplacer ce bloc" onchange="reassignBloc('${b.id}',this.value);this.selectedIndex=0" onclick="event.stopPropagation()">${opts}</select>
           </div>
+          ${open?`<div class="tjr-detail">
+            <div class="tjr-actionbar">
+              <button class="btn btn-outline btn-sm" onclick="moveBlocById('${b.id}',-1)" ${bpos===0?'disabled':''}>↑ Monter</button>
+              <button class="btn btn-outline btn-sm" onclick="moveBlocById('${b.id}',1)" ${bpos===g.blocs.length-1?'disabled':''}>↓ Descendre</button>
+              <button class="btn btn-outline btn-sm" onclick="openTournageBloc('${b.id}')">✎ Modifier</button>
+              <button class="btn btn-danger btn-sm" onclick="deleteTournageBloc('${b.id}')">✕ Supprimer</button>
+            </div>
+            ${(b.materiel||[]).length?`<div class="tj-mats" style="margin-bottom:8px">${b.materiel.map(m=>`<span class="tj-mat">${esc(m)}</span>`).join('')}</div>`:''}
+            ${plans.length?`<div class="tj-plans">${plans.map((p,pi)=>`
+              <div class="tj-plan${p.done?' done':''}">
+                <input type="checkbox" class="tj-plan-check" ${p.done?'checked':''} onchange="toggleTjPlan('${b.id}',${pi})">
+                <span class="tj-plan-text">${esc(p.texte)}${ghTag(p.texte)}</span>
+              </div>`).join('')}</div>`:`<div style="color:var(--text-hint);font-size:12px;font-style:italic">Aucun plan. Ajoute-en via ✎ Modifier.</div>`}
+          </div>`:''}
         </div>`;
       }).join('')}
     </div>`;
   }).join('');
 }
 function fmtDuree(m){m=parseInt(m)||0;if(m<60)return m+' min';const h=Math.floor(m/60),r=m%60;return r?`${h}h${String(r).padStart(2,'0')}`:`${h}h`;}
-function toggleTournagePlan(bi,pi){D.tournage[bi].plans[pi].done=!D.tournage[bi].plans[pi].done;saveAll().then(()=>renderTournage());}
-// Réordonner un bloc à l'intérieur de son créneau (dir = -1 monter, +1 descendre)
-function moveBloc(gi,dir){
-  const b=D.tournage[gi];
+function tjFind(id){return (D.tournage||[]).find(b=>b.id===id);}
+function toggleTjPlan(id,pi){const b=tjFind(id);if(!b)return;b.plans[pi].done=!b.plans[pi].done;saveAll().then(()=>renderTournage());}
+function toggleTjBloc(id){
+  const b=tjFind(id);if(!b)return;
+  if(b.plans&&b.plans.length){const all=b.plans.every(p=>p.done);b.plans.forEach(p=>p.done=!all);}
+  else b.done=!b.done;
+  saveAll().then(()=>renderTournage());
+}
+// Réordonner un bloc dans son créneau
+function moveBlocById(id,dir){
+  const gi=(D.tournage||[]).findIndex(b=>b.id===id);if(gi<0)return;
+  const key=tjCreneauKey(D.tournage[gi]);
   let j=gi+dir;
-  while(j>=0&&j<D.tournage.length&&D.tournage[j].creneau!==b.creneau)j+=dir;
+  while(j>=0&&j<D.tournage.length&&tjCreneauKey(D.tournage[j])!==key)j+=dir;
   if(j<0||j>=D.tournage.length)return;
   [D.tournage[gi],D.tournage[j]]=[D.tournage[j],D.tournage[gi]];
   saveAll().then(()=>renderTournage());
 }
-function toggleTournageBloc(bi){
-  const b=D.tournage[bi];
-  if(b.plans&&b.plans.length){const all=b.plans.every(p=>p.done);b.plans.forEach(p=>p.done=!all);}
-  else b.done=!b.done;
+// Déplacer un bloc vers un autre créneau (le cœur de la replanif)
+function reassignBloc(id,val){
+  const b=tjFind(id);if(!b||!val)return;
+  if(val==='__reprog__')b.creneau='';
+  else if(val==='__new__'){
+    const name=prompt('Nouveau créneau (ex: Lundi 18h-20h) :');
+    if(!name||!name.trim())return;
+    b.creneau=name.trim();
+  } else b.creneau=val;
   saveAll().then(()=>renderTournage());
 }
 function resetTournageChecks(){
