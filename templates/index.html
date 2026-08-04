@@ -472,6 +472,8 @@ tr:hover td{background:rgba(234,229,219,0.3);}
       </div>
       <div class="form-group"><label>Titre / Hook</label><textarea id="c-titre" rows="2"></textarea></div>
       <div class="form-group"><label>Visual Hook</label><input type="text" id="c-visual" placeholder="ex: B-roll mains, Texte overlay..."></div>
+      <div class="form-group"><label>Légende</label><textarea id="c-legende" rows="4" placeholder="La légende finale à publier..."></textarea></div>
+      <div class="form-group"><label>CTA</label><input type="text" id="c-cta" placeholder="ex: enregistre ce post, dis-moi en commentaire..."></div>
       <div class="form-row">
         <div class="form-group"><label>Date de publication</label><input type="date" id="c-date"></div>
         <div class="form-group"><label>Statut</label>
@@ -1140,6 +1142,7 @@ function importContenusCSV(input){
     if(iTitre<0){toast('Colonne "titre" introuvable — utilise le modèle 📄');return;}
     const iType=findCol(head,['type']),iPilier=findCol(head,['pilier']),iVisual=findCol(head,['visuel','visual']),
           iDate=findCol(head,['date']),iStatut=findCol(head,['statut','status']),iNotes=findCol(head,['notes']),
+          iLegende=findCol(head,['legende','légende','caption','legend']),iCta=findCol(head,['cta','call to action','appel']),
           iPlan=findCol(head,['plan','photos','sequences']),iMateriel=findCol(head,['materiel','matériel','materiaux']),
           iVues=findCol(head,['vues']),iLikes=findCol(head,['likes']),iComs=findCol(head,['commentaires']),
           iSaves=findCol(head,['sauvegardes','saves']),iShares=findCol(head,['partages']),iPortee=findCol(head,['portee']);
@@ -1163,6 +1166,8 @@ function importContenusCSV(input){
         date:date||new Date().toISOString().split('T')[0],
         statut:iStatut>=0?resolveStatut(r[iStatut]):'Pas commencé',
         notes:iNotes>=0?(r[iNotes]||'').trim():'',
+        legende:iLegende>=0?(r[iLegende]||'').trim():'',
+        cta:iCta>=0?(r[iCta]||'').trim():'',
         shotlist:plan.map(t=>({texte:t,done:false})),
         materiel:materiel.map(t=>({texte:t,done:false})),
         vues:iVues>=0?(parseInt(r[iVues])||0):0,
@@ -1178,16 +1183,16 @@ function importContenusCSV(input){
   });
 }
 function exportContenusCSV(){
-  const rows=[['type','titre','pilier','visuel','date','statut','notes','plan','materiel','vues','likes','commentaires','sauvegardes','partages','portee']];
-  sortedContenus().forEach(c=>rows.push([c.type,c.titre,getPilier(c.pilier).nom,c.visual_hook||'',c.date||'',c.statut,c.notes||'',
+  const rows=[['type','titre','pilier','visuel','legende','cta','date','statut','notes','plan','materiel','vues','likes','commentaires','sauvegardes','partages','portee']];
+  sortedContenus().forEach(c=>rows.push([c.type,c.titre,getPilier(c.pilier).nom,c.visual_hook||'',c.legende||'',c.cta||'',c.date||'',c.statut,c.notes||'',
     (c.shotlist||[]).map(s=>s.texte).join(' | '),(c.materiel||[]).map(m=>m.texte).join(' | '),c.vues||0,c.likes||0,c.commentaires||0,c.sauvegardes||0,c.partages||0,c.portee||0]));
   csvDownload(rows,'contenus.csv');
 }
 function downloadContenusTemplate(){
   csvDownload([
-    ['type','titre','pilier','visuel','date','statut','notes','plan','materiel'],
-    ['Reel',"Le matin où j'ai arrêté de courir",'Voix','B-roll mains, lumière douce','2026-08-03','Pas commencé','Caption intime','Plan 1 — réveil | Plan 2 — café | Plan 3 — atelier','trépied | lumière naturelle | café | carnet'],
-    ['Carrousel','5 objets qui me réconfortent','Ambiance','Flat lay lin beige','2026-08-06','Prepping','','Photo 1 — bougie | Photo 2 — tasse | Photo 3 — plaid','lin beige | bougie | plaid | tasse']
+    ['type','titre','pilier','visuel','legende','cta','date','statut','notes','plan','materiel'],
+    ['Reel',"Le matin où j'ai arrêté de courir",'Voix','B-roll mains, lumière douce','Ce matin-là, j\'ai laissé le café refroidir sans culpabiliser...','enregistre ce post pour ta prochaine matinée douce','2026-08-03','Pas commencé','Caption intime','Plan 1 — réveil | Plan 2 — café | Plan 3 — atelier','trépied | lumière naturelle | café | carnet'],
+    ['Carrousel','5 objets qui me réconfortent','Ambiance','Flat lay lin beige','','dis-moi en commentaire lequel te ressemble','2026-08-06','Prepping','','Photo 1 — bougie | Photo 2 — tasse | Photo 3 — plaid','lin beige | bougie | plaid | tasse']
   ],'modele_contenus.csv');
 }
 function renderListe(){
@@ -1539,6 +1544,8 @@ function openModalContenu(id,datePreset){
     document.getElementById('c-pilier').value=c.pilier;
     document.getElementById('c-titre').value=c.titre;
     document.getElementById('c-visual').value=c.visual_hook||'';
+    document.getElementById('c-legende').value=c.legende||'';
+    document.getElementById('c-cta').value=c.cta||'';
     document.getElementById('c-date').value=c.date||'';
     document.getElementById('c-statut').value=c.statut;
     document.getElementById('c-notes').value=c.notes||'';
@@ -1553,7 +1560,7 @@ function openModalContenu(id,datePreset){
     mats=(c.materiel||[]).map(m=>({texte:m.texte||'',done:!!m.done}));
   } else {
     document.getElementById('mc-title').textContent='Nouveau contenu 🌸';
-    ['c-titre','c-visual','c-notes'].forEach(f=>document.getElementById(f).value='');
+    ['c-titre','c-visual','c-legende','c-cta','c-notes'].forEach(f=>document.getElementById(f).value='');
     document.getElementById('c-date').value=datePreset||new Date().toISOString().split('T')[0];
     document.getElementById('c-statut').value='Pas commencé';
     ['s-vues','s-likes','s-coms','s-saves','s-shares','s-portee'].forEach(f=>document.getElementById(f).value=0);
@@ -1648,6 +1655,8 @@ function saveContenu(){
     pilier:document.getElementById('c-pilier').value,
     titre:document.getElementById('c-titre').value.trim(),
     visual_hook:document.getElementById('c-visual').value.trim(),
+    legende:document.getElementById('c-legende').value.trim(),
+    cta:document.getElementById('c-cta').value.trim(),
     date:document.getElementById('c-date').value,
     statut:document.getElementById('c-statut').value,
     notes:document.getElementById('c-notes').value.trim(),
