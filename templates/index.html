@@ -466,6 +466,10 @@ tr:hover td{background:rgba(234,229,219,0.3);}
       <button class="mtab" onclick="switchMTab(2)">Stats</button>
     </div>
     <div id="mtab-infos">
+      <div class="form-group" id="c-existing-wrap" style="display:none">
+        <label>📎 Planifier un contenu existant</label>
+        <select id="c-existing" onchange="pickExistingContenu(this)"></select>
+      </div>
       <div class="form-row">
         <div class="form-group"><label>Type</label><select id="c-type" onchange="renderShots()"><option>Reel</option><option>Story</option><option>Carrousel</option><option>Post</option></select></div>
         <div class="form-group"><label>Pilier</label><select id="c-pilier"></select></div>
@@ -1537,6 +1541,7 @@ function fillPilierSelect(selId,selected){
 function openModalContenu(id,datePreset){
   fillPilierSelect('c-pilier','');
   switchMTab(0);
+  document.getElementById('c-existing-wrap').style.display='none';
   if(id){
     const c=D.contenus.find(x=>x.id===id);
     document.getElementById('mc-title').textContent='Modifier le contenu';
@@ -1567,9 +1572,26 @@ function openModalContenu(id,datePreset){
     document.getElementById('c-edit-id').value='';
     shots=[];
     mats=[];
+    document.getElementById('c-date-preset').value=datePreset||'';
+    const sel=document.getElementById('c-existing');
+    const opts=D.contenus.slice().sort((a,b)=>(a.date||'').localeCompare(b.date||'')||(a.titre||'').localeCompare(b.titre||''));
+    sel.innerHTML='<option value="">— Nouveau contenu —</option>'+opts.map(c=>{
+      const p=getPilier(c.pilier);
+      const t=(c.titre||'(sans titre)').replace(/\s+/g,' ').trim().substring(0,50);
+      return `<option value="${c.id}">${p.emoji} ${esc(t)} · ${c.date?fmtDate(c.date):'sans date'}</option>`;
+    }).join('');
+    sel.value='';
+    document.getElementById('c-existing-wrap').style.display='';
   }
   renderShots();renderMats();
   document.getElementById('modal-contenu').classList.add('open');
+}
+function pickExistingContenu(sel){
+  const id=sel.value;
+  if(!id)return;
+  const preset=document.getElementById('c-date-preset').value;
+  openModalContenu(id);
+  if(preset)document.getElementById('c-date').value=preset;
 }
 function openModalContenuStatut(statut){openModalContenu();document.getElementById('c-statut').value=statut;}
 
