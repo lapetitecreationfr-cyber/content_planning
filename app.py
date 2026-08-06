@@ -7,6 +7,10 @@ from flask import Flask, request, jsonify, send_file
 
 app = Flask(__name__)
 
+# Dossier où se trouve app.py : sert d'ancre pour retrouver index.html et data.json
+# quel que soit le dossier de travail utilisé par l'hébergeur.
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
 # ── Configuration Supabase ──────────────────────────────────────────────
 # Sur l'hébergeur (Render), définis ces deux variables d'environnement :
 #   SUPABASE_URL  = https://xxxxxxxx.supabase.co
@@ -18,7 +22,7 @@ USE_SUPABASE = bool(SUPABASE_URL and SUPABASE_KEY)
 
 TABLE = 'app_state'
 ROW_ID = 'contenu_instagram'
-LOCAL_FILE = 'data.json'
+LOCAL_FILE = os.path.join(BASE_DIR, 'data.json')
 
 HEADERS = {
     'apikey': SUPABASE_KEY,
@@ -76,9 +80,17 @@ def write_state(data):
     r.raise_for_status()
 
 
+def find_file(name):
+    """Cherche un fichier à la racine, puis dans templates/ (convention Flask)."""
+    for p in (os.path.join(BASE_DIR, name), os.path.join(BASE_DIR, 'templates', name)):
+        if os.path.exists(p):
+            return p
+    return os.path.join(BASE_DIR, name)
+
+
 @app.route('/')
 def index():
-    return send_file('index.html')
+    return send_file(find_file('index.html'))
 
 
 @app.route('/api/data', methods=['GET'])

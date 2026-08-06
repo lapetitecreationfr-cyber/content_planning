@@ -1,0 +1,44 @@
+{
+  "contenus": [],
+  "idees": [],
+  "hooks_banque": [],
+  "inspirations": [],
+  "tournage": [],
+  "piliers": [
+    {
+      "id": "P00001",
+      "nom": "Voix",
+      "emoji": "💬",
+      "description": "Ce que je pense tout haut, mon regard, mes convictions.",
+      "couleur": "#d4857a"
+    },
+    {
+      "id": "P00002",
+      "nom": "Ambiance",
+      "emoji": "🕯️",
+      "description": "Le cocon, la lumière, la douceur du quotidien.",
+      "couleur": "#c4955a"
+    },
+    {
+      "id": "P00003",
+      "nom": "Atelier",
+      "emoji": "☕",
+      "description": "Les coulisses, le geste, le travail fait main.",
+      "couleur": "#8aad8a"
+    },
+    {
+      "id": "P00004",
+      "nom": "Produit",
+      "emoji": "🤍",
+      "description": "Les créations, les nouveautés, ce qui part en boutique.",
+      "couleur": "#b89ab8"
+    },
+    {
+      "id": "P00005",
+      "nom": "Loin du Scroll",
+      "emoji": "🌿",
+      "description": "Ralentir, respirer, la vraie vie hors écran.",
+      "couleur": "#7aada8"
+    }
+  ]
+}
