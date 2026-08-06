@@ -1,73 +1,100 @@
-import os, json, threading, webbrowser
-from flask import Flask, render_template, request, jsonify
+import os
+import json
+from datetime import datetime, timezone
+
+import requests
+from flask import Flask, request, jsonify, send_file
 
 app = Flask(__name__)
 
-DATA_FILE = os.environ.get("DATA_FILE", os.path.join(os.path.dirname(__file__), "data.json"))
+# ── Configuration Supabase ──────────────────────────────────────────────
+# Sur l'hébergeur (Render), définis ces deux variables d'environnement :
+#   SUPABASE_URL  = https://xxxxxxxx.supabase.co
+#   SUPABASE_KEY  = <clé service_role>   (côté serveur uniquement, jamais dans le HTML)
+# En local, si elles ne sont pas définies, l'app retombe sur data.json.
+SUPABASE_URL = os.environ.get('SUPABASE_URL', '').rstrip('/')
+SUPABASE_KEY = os.environ.get('SUPABASE_KEY', '')
+USE_SUPABASE = bool(SUPABASE_URL and SUPABASE_KEY)
 
-DEFAULT_DATA = {
-    "piliers": [
-        {"id":"P001","nom":"Voix","emoji":"🎙️","couleur":"#e8b4a8","description":"Mes opinions, ma vision, mon histoire"},
-        {"id":"P002","nom":"Ambiance","emoji":"🕯️","couleur":"#d4b8d4","description":"Rituels, objets qui réconfortent, esthétique slow"},
-        {"id":"P003","nom":"Atelier","emoji":"🧶","couleur":"#dbb896","description":"Fait main, coulisses, processus de création"},
-        {"id":"P004","nom":"Produit","emoji":"🛍️","couleur":"#b8d4a8","description":"Mise en avant des créations, lancement"},
-        {"id":"P005","nom":"Loin du Scroll","emoji":"📵","couleur":"#b5c4d4","description":"Invitation à ralentir, déconnexion"}
-    ],
-    "contenus": [],
-    "inspirations": [
-        {"id":"I001","compte":"@slowliving.fr","lien":"https://instagram.com/slowliving.fr","niche":"Slow living","ce_que_jaime":"Esthétique épurée, captions longues et sincères","notes":""},
-        {"id":"I002","compte":"@julie.mrgn","lien":"https://instagram.com/julie.mrgn","niche":"Artisanat / couture","ce_que_jaime":"B-rolls très sensuels, montage lent","notes":""},
-        {"id":"I003","compte":"@lesfillesducreateur","lien":"https://instagram.com/lesfillesducreateur","niche":"Création textile","ce_que_jaime":"Hooks forts, voix authentique","notes":""}
-    ],
-    "idees": [],
-    "hooks_banque": [
-        {"id":"HK001","pattern":"POV","texte":"POV : tu réalises que tu n'as pas besoin de plus, juste de mieux","pilier":"P001","score":0},
-        {"id":"HK002","pattern":"Arrête de scroller","texte":"Arrête de scroller 5 secondes. Regarde ça.","pilier":"P003","score":0},
-        {"id":"HK003","pattern":"On m'a dit","texte":"On m'a dit que ralentir c'était abandonner. Ils avaient tort.","pilier":"P001","score":0},
-        {"id":"HK004","pattern":"J'ai arrêté","texte":"J'ai arrêté d'optimiser ma vie. Voici ce qui s'est passé.","pilier":"P001","score":0},
-        {"id":"HK005","pattern":"Appel","texte":"Appel à toutes celles qui préfèrent un puzzle à une soirée bruyante.","pilier":"P005","score":0}
-    ]
+TABLE = 'app_state'
+ROW_ID = 'contenu_instagram'
+LOCAL_FILE = 'data.json'
+
+HEADERS = {
+    'apikey': SUPABASE_KEY,
+    'Authorization': f'Bearer {SUPABASE_KEY}',
+    'Content-Type': 'application/json',
 }
 
-def load_data():
-    if not os.path.exists(DATA_FILE):
-        save_data(DEFAULT_DATA)
-        return DEFAULT_DATA
-    with open(DATA_FILE, "r", encoding="utf-8") as f:
-        d = json.load(f)
-    for k, v in DEFAULT_DATA.items():
-        if k not in d:
-            d[k] = v
-    return d
 
-def save_data(data):
-    with open(DATA_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+def default_data():
+    """Données de départ : le data.json committé dans le repo s'il existe,
+    sinon un squelette vide. Sert de graine au tout premier lancement."""
+    try:
+        with open(LOCAL_FILE, encoding='utf-8') as f:
+            return json.load(f)
+    except Exception:
+        return {
+            "contenus": [],
+            "idees": [],
+            "hooks_banque": [],
+            "inspirations": [],
+            "tournage": [],
+            "piliers": [],
+        }
 
-@app.route("/")
+
+def read_state():
+    if not USE_SUPABASE:
+        return default_data()
+    url = f"{SUPABASE_URL}/rest/v1/{TABLE}?id=eq.{ROW_ID}&select=data"
+    r = requests.get(url, headers=HEADERS, timeout=20)
+    r.raise_for_status()
+    rows = r.json()
+    if rows:
+        return rows[0]['data']
+    # Aucune ligne encore : on sème avec les données par défaut.
+    seed = default_data()
+    write_state(seed)
+    return seed
+
+
+def write_state(data):
+    if not USE_SUPABASE:
+        with open(LOCAL_FILE, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        return
+    url = f"{SUPABASE_URL}/rest/v1/{TABLE}?on_conflict=id"
+    headers = dict(HEADERS)
+    headers['Prefer'] = 'resolution=merge-duplicates,return=minimal'
+    body = [{
+        "id": ROW_ID,
+        "data": data,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }]
+    r = requests.post(url, headers=headers, data=json.dumps(body), timeout=20)
+    r.raise_for_status()
+
+
+@app.route('/')
 def index():
-    return render_template("index.html")
+    return send_file('index.html')
 
-@app.route("/api/data", methods=["GET"])
+
+@app.route('/api/data', methods=['GET'])
 def get_data():
-    resp = jsonify(load_data())
-    resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
-    resp.headers["Pragma"] = "no-cache"
-    resp.headers["Expires"] = "0"
+    resp = jsonify(read_state())
+    resp.headers['Cache-Control'] = 'no-store'
     return resp
 
-@app.route("/api/data", methods=["POST"])
+
+@app.route('/api/data', methods=['POST'])
 def post_data():
-    save_data(request.get_json())
+    data = request.get_json(force=True)
+    write_state(data)
     return jsonify({"ok": True})
 
-@app.route("/health")
-def health():
-    return "OK"
 
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5002))
-    is_render = os.environ.get("RENDER", False)
-    if not is_render:
-        threading.Thread(target=lambda: (__import__('time').sleep(1), webbrowser.open(f'http://127.0.0.1:{port}')), daemon=True).start()
-    app.run(host="0.0.0.0", port=port, debug=False)
+if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port)
