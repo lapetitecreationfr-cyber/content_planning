@@ -31,6 +31,17 @@ HEADERS = {
 }
 
 
+class SupabaseError(Exception):
+    pass
+
+
+def _check(r):
+    """Lève une erreur lisible contenant le message renvoyé par Supabase."""
+    if r.status_code >= 400:
+        raise SupabaseError(f"Supabase {r.status_code} → {r.text}")
+    return r
+
+
 def default_data():
     """Données de départ : le data.json committé dans le repo s'il existe,
     sinon un squelette vide. Sert de graine au tout premier lancement."""
@@ -53,7 +64,7 @@ def read_state():
         return default_data()
     url = f"{SUPABASE_URL}/rest/v1/{TABLE}?id=eq.{ROW_ID}&select=data"
     r = requests.get(url, headers=HEADERS, timeout=20)
-    r.raise_for_status()
+    _check(r)
     rows = r.json()
     if rows:
         return rows[0]['data']
@@ -77,7 +88,7 @@ def write_state(data):
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }]
     r = requests.post(url, headers=headers, data=json.dumps(body), timeout=20)
-    r.raise_for_status()
+    _check(r)
 
 
 def find_file(name):
@@ -95,16 +106,22 @@ def index():
 
 @app.route('/api/data', methods=['GET'])
 def get_data():
-    resp = jsonify(read_state())
-    resp.headers['Cache-Control'] = 'no-store'
-    return resp
+    try:
+        resp = jsonify(read_state())
+        resp.headers['Cache-Control'] = 'no-store'
+        return resp
+    except Exception as e:
+        return jsonify({"error": str(e), "supabase_active": USE_SUPABASE}), 500
 
 
 @app.route('/api/data', methods=['POST'])
 def post_data():
-    data = request.get_json(force=True)
-    write_state(data)
-    return jsonify({"ok": True})
+    try:
+        data = request.get_json(force=True)
+        write_state(data)
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"error": str(e), "supabase_active": USE_SUPABASE}), 500
 
 
 if __name__ == '__main__':
