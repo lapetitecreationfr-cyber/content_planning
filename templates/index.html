@@ -408,7 +408,7 @@ tr:hover td{background:rgba(234,229,219,0.3);}
           <div class="inspo-grid" id="exemples-grid"></div>
         </div>
         <div id="inspo-tab-prospection" style="display:none">
-          <div class="inspo-grid" id="prospection-grid"></div>
+          <div id="prospection-grid"></div>
         </div>
         <div id="inspo-tab-idees" style="display:none">
           <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px" id="idees-grid"></div>
@@ -593,7 +593,7 @@ tr:hover td{background:rgba(234,229,219,0.3);}
 <div class="modal-overlay" id="modal-prospection">
   <div class="modal">
     <h3 id="mpr-title">Nouveau compte cible</h3>
-    <div class="form-group"><label>Compte Instagram</label><input type="text" id="pr-compte" placeholder="@compte"></div>
+    <div class="form-group"><label>Compte Instagram (sans @)</label><input type="text" id="pr-compte" placeholder="compte.cible ou lien du profil"></div>
     <div class="form-group"><label>Note (audience visée, pourquoi ce compte)</label><textarea id="pr-note" rows="2"></textarea></div>
     <div class="form-group"><label><input type="checkbox" id="pr-actif" style="width:auto;margin-right:6px">Actif (à scraper)</label></div>
     <input type="hidden" id="pr-edit-id">
@@ -1279,7 +1279,7 @@ function updateInspoActions(){
   const A={
     comptes:`<button class="btn btn-primary btn-sm" onclick="openModal('modal-inspo','new')">+ Compte</button><button class="btn btn-outline btn-sm" onclick="document.getElementById('inspo-csv-input').click()">📥 Importer CSV</button><button class="btn btn-outline btn-sm" onclick="exportInspoCSV()">📤 Exporter</button><button class="btn btn-outline btn-sm" onclick="downloadInspoTemplate()">📄 Modèle</button>`,
     exemples:`<button class="btn btn-primary btn-sm" onclick="openModal('modal-exemple','new')">+ Exemple</button><button class="btn btn-outline btn-sm" onclick="document.getElementById('exemples-csv-input').click()">📥 Importer CSV</button><button class="btn btn-outline btn-sm" onclick="exportExemplesCSV()">📤 Exporter</button><button class="btn btn-outline btn-sm" onclick="downloadExemplesTemplate()">📄 Modèle</button><button class="btn btn-danger btn-sm" onclick="viderExemples()">🗑️ Vider</button>`,
-    prospection:`<button class="btn btn-primary btn-sm" onclick="openModal('modal-prospection','new')">+ Compte cible</button><button class="btn btn-outline btn-sm" onclick="document.getElementById('prospection-csv-input').click()">📥 Importer CSV</button><button class="btn btn-outline btn-sm" onclick="exportProspectionCSV()">📤 Exporter</button><button class="btn btn-outline btn-sm" onclick="downloadProspectionTemplate()">📄 Modèle</button><button class="btn btn-danger btn-sm" onclick="viderProspection()">🗑️ Vider</button>`,
+    prospection:`<button class="btn btn-primary btn-sm" onclick="openModal('modal-prospection','new')">+ Compte cible</button><button class="btn btn-sage btn-sm" onclick="copyProspectionActifs()">📋 Copier les actifs</button><button class="btn btn-outline btn-sm" onclick="document.getElementById('prospection-csv-input').click()">📥 Importer CSV</button><button class="btn btn-outline btn-sm" onclick="exportProspectionCSV()">📤 Exporter</button><button class="btn btn-outline btn-sm" onclick="downloadProspectionTemplate()">📄 Modèle</button><button class="btn btn-danger btn-sm" onclick="viderProspection()">🗑️ Vider</button>`,
     idees:`<button class="btn btn-primary btn-sm" onclick="openModal('modal-idee','new')">+ Idée</button><button class="btn btn-outline btn-sm" onclick="document.getElementById('idees-csv-input').click()">📥 Importer CSV</button><button class="btn btn-outline btn-sm" onclick="exportIdeesCSV()">📤 Exporter</button><button class="btn btn-outline btn-sm" onclick="downloadIdeesTemplate()">📄 Modèle</button><button class="btn btn-danger btn-sm" onclick="viderIdees()">🗑️ Vider</button>`
   };
   el.innerHTML=A[inspoTab]||A.comptes;
@@ -1336,21 +1336,34 @@ function renderExemples(){
     </div>`;
   }).join('');
 }
+function cleanHandle(s){
+  s=(s||'').trim();
+  if(/^https?:/i.test(s)){const m=s.match(/instagram\.com\/([^\/?#]+)/i);return m?m[1]:s;}
+  return s.replace(/^@+/,'');
+}
+function copyText(t){if(!t)return;navigator.clipboard.writeText(t).then(()=>toast('Copié : '+t)).catch(()=>toast('Copie impossible'));}
+function copyProspectionActifs(){
+  const list=(D.prospection||[]).filter(c=>c.actif!==false).map(c=>cleanHandle(c.compte)).filter(Boolean);
+  if(!list.length){toast('Aucun compte actif');return;}
+  navigator.clipboard.writeText(list.join('\n')).then(()=>toast(list.length+' compte(s) copié(s) ✨')).catch(()=>toast('Copie impossible'));
+}
 function renderProspection(){
   const el=document.getElementById('prospection-grid');if(!el)return;
-  if(!D.prospection.length){el.innerHTML=`<div style="color:var(--text-hint);font-size:13px">Les comptes cibles dont tu prospectes les abonnés. Marque "actif" ceux à scraper.</div>`;return;}
-  el.innerHTML=D.prospection.map(c=>`
-    <div class="inspo-card" style="${c.actif===false?'opacity:.55':''}">
-      <div class="inspo-compte">${c.compte}</div>
-      <div class="inspo-niche">${c.actif===false?'⏸ En pause':'● Actif'}</div>
-      ${c.note?`<div class="inspo-love">${c.note}</div>`:''}
-      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-        ${c.compte.startsWith('http')?`<a href="${c.compte}" target="_blank" class="btn btn-outline btn-sm" style="text-decoration:none">→ Voir</a>`:''}
-        <button class="btn-used ${c.actif!==false?'on':''}" onclick="toggleProspectionActif('${c.id}')">${c.actif!==false?'✓ Actif':'Activer'}</button>
+  if(!D.prospection.length){el.innerHTML=`<div style="color:var(--text-hint);font-size:13px">Les comptes cibles dont tu prospectes les abonnés. Colle les usernames (sans @), marque "actif" ceux à scraper.</div>`;return;}
+  const n=D.prospection.length;
+  el.innerHTML=`<div style="background:var(--white);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow);overflow:hidden">`+
+    D.prospection.map(c=>{
+      const u=cleanHandle(c.compte),off=c.actif===false;
+      return `<div style="display:flex;align-items:center;gap:10px;padding:9px 14px;border-bottom:1px solid var(--border);${off?'opacity:.5':''}">
+        <span onclick="copyText('${u}')" title="Cliquer pour copier" style="cursor:pointer;font-size:13px;font-weight:600;font-family:ui-monospace,Menlo,monospace;color:var(--text);min-width:150px">${u}</span>
+        <span style="font-size:11.5px;color:var(--text-hint);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.note||''}</span>
+        <button class="btn-used ${off?'':'on'}" onclick="toggleProspectionActif('${c.id}')">${off?'⏸ Pause':'✓ Actif'}</button>
+        <button class="btn btn-outline btn-sm btn-icon" onclick="copyText('${u}')" title="Copier">📋</button>
         <button class="btn btn-outline btn-sm btn-icon" onclick="openModal('modal-prospection','edit','${c.id}')">✎</button>
         <button class="btn btn-danger btn-sm btn-icon" onclick="deleteProspection('${c.id}')">✕</button>
-      </div>
-    </div>`).join('');
+      </div>`;
+    }).join('')+`</div>`+
+    `<div style="font-size:11px;color:var(--text-hint);margin-top:8px">${n} compte(s) • clique un username pour le copier, ou "Copier les actifs" en haut pour tout récupérer</div>`;
 }
 
 // ── HOOKS ──
@@ -1485,9 +1498,8 @@ function importProspectionCSV(input){
     const existants=new Set(D.prospection.map(c=>norm(c.compte)));
     let added=0,dup=0,vides=0;
     rows.forEach((r,n)=>{
-      let compte=(r[iCompte]||'').trim();
+      let compte=cleanHandle(r[iCompte]);
       if(!compte){vides++;return;}
-      if(!compte.startsWith('@')&&!compte.startsWith('http'))compte='@'+compte;
       if(existants.has(norm(compte))){dup++;return;}
       existants.add(norm(compte));
       const actifVal=iActif>=0?norm(r[iActif]):'';
@@ -1510,8 +1522,8 @@ function exportProspectionCSV(){
 function downloadProspectionTemplate(){
   csvDownload([
     ['compte','note','actif'],
-    ['@compte.cible1','Audience slow living 25-35, engagement fort','oui'],
-    ['@compte.cible2','Créatrices artisanat, à tester','non']
+    ['compte.cible1','Audience slow living 25-35, engagement fort','oui'],
+    ['compte.cible2','Créatrices artisanat, à tester','non']
   ],'modele_comptes_prospection.csv');
 }
 function renderHooks(){
@@ -1919,9 +1931,8 @@ function viderExemples(){const n=(D.exemples||[]).length;if(!n){toast('Aucun exe
 // ── COMPTES PROSPECTION ──
 function saveProspection(){
   if(!D.prospection)D.prospection=[];
-  let compte=document.getElementById('pr-compte').value.trim();
+  let compte=cleanHandle(document.getElementById('pr-compte').value);
   if(!compte){toast('Ajoute un compte 🎯');return;}
-  if(!compte.startsWith('@')&&!compte.startsWith('http'))compte='@'+compte;
   const editId=document.getElementById('pr-edit-id').value;
   const obj={id:editId||'PR'+Date.now().toString().slice(-5),compte:compte,note:document.getElementById('pr-note').value.trim(),actif:document.getElementById('pr-actif').checked};
   if(editId){const i=D.prospection.findIndex(x=>x.id===editId);if(i>=0)D.prospection[i]=obj;}else D.prospection.push(obj);
