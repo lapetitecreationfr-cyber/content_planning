@@ -393,12 +393,22 @@ tr:hover td{background:rgba(234,229,219,0.3);}
       <div id="page-inspiration" class="page">
         <input type="file" id="inspo-csv-input" accept=".csv,text/csv" style="display:none" onchange="importInspoCSV(this)">
         <input type="file" id="idees-csv-input" accept=".csv,text/csv" style="display:none" onchange="importIdeesCSV(this)">
+        <input type="file" id="exemples-csv-input" accept=".csv,text/csv" style="display:none" onchange="importExemplesCSV(this)">
+        <input type="file" id="prospection-csv-input" accept=".csv,text/csv" style="display:none" onchange="importProspectionCSV(this)">
         <div class="view-tabs" id="inspo-tabs">
           <button class="vtab active" onclick="switchInspoTab('comptes')">Comptes d'inspiration</button>
+          <button class="vtab" onclick="switchInspoTab('exemples')">Exemples visuels</button>
+          <button class="vtab" onclick="switchInspoTab('prospection')">Comptes prospection</button>
           <button class="vtab" onclick="switchInspoTab('idees')">Banque d'idées</button>
         </div>
         <div id="inspo-tab-comptes">
           <div class="inspo-grid" id="inspo-grid"></div>
+        </div>
+        <div id="inspo-tab-exemples" style="display:none">
+          <div class="inspo-grid" id="exemples-grid"></div>
+        </div>
+        <div id="inspo-tab-prospection" style="display:none">
+          <div class="inspo-grid" id="prospection-grid"></div>
         </div>
         <div id="inspo-tab-idees" style="display:none">
           <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px" id="idees-grid"></div>
@@ -560,6 +570,36 @@ tr:hover td{background:rgba(234,229,219,0.3);}
       <button class="btn btn-outline" onclick="closeModal('modal-idee')">Annuler</button>
       <button class="btn btn-primary" onclick="saveIdee()">Enregistrer</button>
       <button class="btn btn-sage" onclick="ideeToContenu()">→ Planifier directement</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal exemple visuel -->
+<div class="modal-overlay" id="modal-exemple">
+  <div class="modal">
+    <h3 id="mex-title">Nouvel exemple visuel</h3>
+    <div class="form-group"><label>Lien (post / reel)</label><input type="url" id="ex-url" placeholder="https://instagram.com/reel/..."></div>
+    <div class="form-group"><label>Ce que tu veux reproduire</label><textarea id="ex-note" rows="2" placeholder="cadrage, lumière, transition, montage..."></textarea></div>
+    <div class="form-group"><label>Pilier (optionnel)</label><select id="ex-pilier"></select></div>
+    <input type="hidden" id="ex-edit-id">
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal('modal-exemple')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveExemple()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal compte prospection -->
+<div class="modal-overlay" id="modal-prospection">
+  <div class="modal">
+    <h3 id="mpr-title">Nouveau compte cible</h3>
+    <div class="form-group"><label>Compte Instagram</label><input type="text" id="pr-compte" placeholder="@compte"></div>
+    <div class="form-group"><label>Note (audience visée, pourquoi ce compte)</label><textarea id="pr-note" rows="2"></textarea></div>
+    <div class="form-group"><label><input type="checkbox" id="pr-actif" style="width:auto;margin-right:6px">Actif (à scraper)</label></div>
+    <input type="hidden" id="pr-edit-id">
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal('modal-prospection')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveProspection()">Enregistrer</button>
     </div>
   </div>
 </div>
@@ -1226,21 +1266,27 @@ function setListeFilter(f){listeFilter=f;renderListe();}
 
 // ── INSPIRATION ──
 let inspoTab='comptes';
+const INSPO_TABS=['comptes','exemples','prospection','idees'];
 function switchInspoTab(t){
   inspoTab=t;
-  document.querySelectorAll('#inspo-tabs .vtab').forEach((b,i)=>b.classList.toggle('active',(i===0&&t==='comptes')||(i===1&&t==='idees')));
-  document.getElementById('inspo-tab-comptes').style.display=t==='comptes'?'':'none';
-  document.getElementById('inspo-tab-idees').style.display=t==='idees'?'':'none';
+  document.querySelectorAll('#inspo-tabs .vtab').forEach((b,i)=>b.classList.toggle('active',INSPO_TABS[i]===t));
+  INSPO_TABS.forEach(k=>{document.getElementById('inspo-tab-'+k).style.display=k===t?'':'none';});
   updateInspoActions();
 }
 function updateInspoActions(){
   const el=document.getElementById('inspo-actions');
   if(!el)return;
-  el.innerHTML=inspoTab==='comptes'
-    ?`<button class="btn btn-primary btn-sm" onclick="openModal('modal-inspo','new')">+ Compte</button><button class="btn btn-outline btn-sm" onclick="document.getElementById('inspo-csv-input').click()">📥 Importer CSV</button><button class="btn btn-outline btn-sm" onclick="exportInspoCSV()">📤 Exporter</button><button class="btn btn-outline btn-sm" onclick="downloadInspoTemplate()">📄 Modèle</button>`
-    :`<button class="btn btn-primary btn-sm" onclick="openModal('modal-idee','new')">+ Idée</button><button class="btn btn-outline btn-sm" onclick="document.getElementById('idees-csv-input').click()">📥 Importer CSV</button><button class="btn btn-outline btn-sm" onclick="exportIdeesCSV()">📤 Exporter</button><button class="btn btn-outline btn-sm" onclick="downloadIdeesTemplate()">📄 Modèle</button><button class="btn btn-danger btn-sm" onclick="viderIdees()">🗑️ Vider</button>`;
+  const A={
+    comptes:`<button class="btn btn-primary btn-sm" onclick="openModal('modal-inspo','new')">+ Compte</button><button class="btn btn-outline btn-sm" onclick="document.getElementById('inspo-csv-input').click()">📥 Importer CSV</button><button class="btn btn-outline btn-sm" onclick="exportInspoCSV()">📤 Exporter</button><button class="btn btn-outline btn-sm" onclick="downloadInspoTemplate()">📄 Modèle</button>`,
+    exemples:`<button class="btn btn-primary btn-sm" onclick="openModal('modal-exemple','new')">+ Exemple</button><button class="btn btn-outline btn-sm" onclick="document.getElementById('exemples-csv-input').click()">📥 Importer CSV</button><button class="btn btn-outline btn-sm" onclick="exportExemplesCSV()">📤 Exporter</button><button class="btn btn-outline btn-sm" onclick="downloadExemplesTemplate()">📄 Modèle</button><button class="btn btn-danger btn-sm" onclick="viderExemples()">🗑️ Vider</button>`,
+    prospection:`<button class="btn btn-primary btn-sm" onclick="openModal('modal-prospection','new')">+ Compte cible</button><button class="btn btn-outline btn-sm" onclick="document.getElementById('prospection-csv-input').click()">📥 Importer CSV</button><button class="btn btn-outline btn-sm" onclick="exportProspectionCSV()">📤 Exporter</button><button class="btn btn-outline btn-sm" onclick="downloadProspectionTemplate()">📄 Modèle</button><button class="btn btn-danger btn-sm" onclick="viderProspection()">🗑️ Vider</button>`,
+    idees:`<button class="btn btn-primary btn-sm" onclick="openModal('modal-idee','new')">+ Idée</button><button class="btn btn-outline btn-sm" onclick="document.getElementById('idees-csv-input').click()">📥 Importer CSV</button><button class="btn btn-outline btn-sm" onclick="exportIdeesCSV()">📤 Exporter</button><button class="btn btn-outline btn-sm" onclick="downloadIdeesTemplate()">📄 Modèle</button><button class="btn btn-danger btn-sm" onclick="viderIdees()">🗑️ Vider</button>`
+  };
+  el.innerHTML=A[inspoTab]||A.comptes;
 }
 function renderInspo(){
+  if(!D.exemples)D.exemples=[];
+  if(!D.prospection)D.prospection=[];
   document.getElementById('inspo-grid').innerHTML=D.inspirations.map(i=>`
     <div class="inspo-card">
       <div class="inspo-compte">${i.compte}</div>
@@ -1268,6 +1314,43 @@ function renderInspo(){
       </div>
     </div>`;
   }).join('');
+  renderExemples();
+  renderProspection();
+}
+function shortUrl(u){try{const x=new URL(u);return (x.hostname.replace(/^www\./,''))+x.pathname.replace(/\/$/,'');}catch(e){return u;}}
+function renderExemples(){
+  const el=document.getElementById('exemples-grid');if(!el)return;
+  if(!D.exemples.length){el.innerHTML=`<div style="color:var(--text-hint);font-size:13px">Rien pour l'instant. Colle ici les liens que tu gardais dans tes enregistrements Insta 💾</div>`;return;}
+  el.innerHTML=D.exemples.map(e=>{
+    const p=e.pilier?getPilier(e.pilier):null;
+    return `<div class="inspo-card" style="${e.fait?'opacity:.6':''}">
+      <div class="inspo-compte" style="font-size:14px;word-break:break-all">${e.note?e.note:shortUrl(e.url)}</div>
+      ${e.note?`<div class="inspo-niche" style="text-transform:none;letter-spacing:0;color:var(--text-hint);font-weight:400">${shortUrl(e.url)}</div>`:''}
+      ${p?`<span class="badge" style="background:rgba(${hexToRgb(p.couleur)},0.2);color:var(--text-muted);margin-bottom:8px;display:inline-block">${p.emoji} ${p.nom}</span>`:''}
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:8px">
+        <a href="${e.url}" target="_blank" class="btn btn-outline btn-sm" style="text-decoration:none">→ Voir</a>
+        <button class="btn-used ${e.fait?'on':''}" onclick="toggleExempleFait('${e.id}')">${e.fait?'✓ Reproduit':'À reproduire'}</button>
+        <button class="btn btn-outline btn-sm btn-icon" onclick="openModal('modal-exemple','edit','${e.id}')">✎</button>
+        <button class="btn btn-danger btn-sm btn-icon" onclick="deleteExemple('${e.id}')">✕</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+function renderProspection(){
+  const el=document.getElementById('prospection-grid');if(!el)return;
+  if(!D.prospection.length){el.innerHTML=`<div style="color:var(--text-hint);font-size:13px">Les comptes cibles dont tu prospectes les abonnés. Marque "actif" ceux à scraper.</div>`;return;}
+  el.innerHTML=D.prospection.map(c=>`
+    <div class="inspo-card" style="${c.actif===false?'opacity:.55':''}">
+      <div class="inspo-compte">${c.compte}</div>
+      <div class="inspo-niche">${c.actif===false?'⏸ En pause':'● Actif'}</div>
+      ${c.note?`<div class="inspo-love">${c.note}</div>`:''}
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+        ${c.compte.startsWith('http')?`<a href="${c.compte}" target="_blank" class="btn btn-outline btn-sm" style="text-decoration:none">→ Voir</a>`:''}
+        <button class="btn-used ${c.actif!==false?'on':''}" onclick="toggleProspectionActif('${c.id}')">${c.actif!==false?'✓ Actif':'Activer'}</button>
+        <button class="btn btn-outline btn-sm btn-icon" onclick="openModal('modal-prospection','edit','${c.id}')">✎</button>
+        <button class="btn btn-danger btn-sm btn-icon" onclick="deleteProspection('${c.id}')">✕</button>
+      </div>
+    </div>`).join('');
 }
 
 // ── HOOKS ──
@@ -1351,6 +1434,85 @@ function downloadIdeesTemplate(){
     ['Le rituel du dimanche soir','Reel','Ambiance','B-roll bougie + thé','','Musique lente'],
     ['3 choses que je fais autrement','Carrousel','Voix','Texte overlay sur fond lin','','']
   ],'modele_idees.csv');
+}
+
+function importExemplesCSV(input){
+  readCSV(input,(rows,head)=>{
+    const iUrl=findCol(head,['lien','url','link']);
+    if(iUrl<0){toast('Colonne "lien" introuvable — utilise le modèle 📄');return;}
+    const iNote=findCol(head,['note','ce que je veux reproduire','notes','description']),
+          iPilier=findCol(head,['pilier']),iFait=findCol(head,['fait','reproduit','done']);
+    if(!D.exemples)D.exemples=[];
+    const existants=new Set(D.exemples.map(e=>norm(e.url)));
+    let added=0,dup=0,vides=0;
+    rows.forEach((r,n)=>{
+      const url=(r[iUrl]||'').trim();
+      if(!url){vides++;return;}
+      if(existants.has(norm(url))){dup++;return;}
+      existants.add(norm(url));
+      const faitVal=iFait>=0?norm(r[iFait]):'';
+      D.exemples.push({
+        id:'EX'+Date.now().toString().slice(-5)+n,
+        url:url,
+        note:iNote>=0?(r[iNote]||'').trim():'',
+        pilier:iPilier>=0?resolvePilier(r[iPilier]):'',
+        fait:['oui','x','1','true','vrai'].includes(faitVal)
+      });
+      added++;
+    });
+    if(importReport(added,dup,vides))saveAll().then(()=>renderInspo());
+  });
+}
+function exportExemplesCSV(){
+  const rows=[['lien','note','pilier','fait']];
+  (D.exemples||[]).forEach(e=>rows.push([e.url,e.note||'',e.pilier?getPilier(e.pilier).nom:'',e.fait?'oui':'']));
+  csvDownload(rows,'exemples_visuels.csv');
+}
+function downloadExemplesTemplate(){
+  csvDownload([
+    ['lien','note','pilier','fait'],
+    ['https://instagram.com/reel/xxxx','Transition mains + fondu lent','Atelier',''],
+    ['https://instagram.com/reel/yyyy','Lumière rasante fin de journée','Ambiance','oui']
+  ],'modele_exemples_visuels.csv');
+}
+
+function importProspectionCSV(input){
+  readCSV(input,(rows,head)=>{
+    const iCompte=findCol(head,['compte','pseudo','instagram']);
+    if(iCompte<0){toast('Colonne "compte" introuvable — utilise le modèle 📄');return;}
+    const iNote=findCol(head,['note','notes','audience']),iActif=findCol(head,['actif','active','scraper']);
+    if(!D.prospection)D.prospection=[];
+    const existants=new Set(D.prospection.map(c=>norm(c.compte)));
+    let added=0,dup=0,vides=0;
+    rows.forEach((r,n)=>{
+      let compte=(r[iCompte]||'').trim();
+      if(!compte){vides++;return;}
+      if(!compte.startsWith('@')&&!compte.startsWith('http'))compte='@'+compte;
+      if(existants.has(norm(compte))){dup++;return;}
+      existants.add(norm(compte));
+      const actifVal=iActif>=0?norm(r[iActif]):'';
+      D.prospection.push({
+        id:'PR'+Date.now().toString().slice(-5)+n,
+        compte:compte,
+        note:iNote>=0?(r[iNote]||'').trim():'',
+        actif:iActif<0?true:!['non','0','false','faux','pause',''].includes(actifVal)
+      });
+      added++;
+    });
+    if(importReport(added,dup,vides))saveAll().then(()=>renderInspo());
+  });
+}
+function exportProspectionCSV(){
+  const rows=[['compte','note','actif']];
+  (D.prospection||[]).forEach(c=>rows.push([c.compte,c.note||'',c.actif===false?'non':'oui']));
+  csvDownload(rows,'comptes_prospection.csv');
+}
+function downloadProspectionTemplate(){
+  csvDownload([
+    ['compte','note','actif'],
+    ['@compte.cible1','Audience slow living 25-35, engagement fort','oui'],
+    ['@compte.cible2','Créatrices artisanat, à tester','non']
+  ],'modele_comptes_prospection.csv');
 }
 function renderHooks(){
   const filters=[{k:'tous',label:'Tous'},{k:'dispo',label:'✨ Non utilisés'},{k:'faits',label:'✓ Utilisés'},...D.piliers.map(p=>({k:p.id,label:`${p.emoji} ${p.nom}`}))];
@@ -1718,6 +1880,15 @@ function openModal(id,mode,ref){
     if(mode==='new'){document.getElementById('mp-title').textContent='Nouveau pilier';['p-nom','p-emoji','p-desc'].forEach(f=>document.getElementById(f).value='');document.getElementById('p-couleur').value='#e8b4a8';document.getElementById('p-edit-id').value='';}
     else{const p=D.piliers.find(x=>x.id===ref);document.getElementById('mp-title').textContent='Modifier';document.getElementById('p-nom').value=p.nom;document.getElementById('p-emoji').value=p.emoji;document.getElementById('p-desc').value=p.description||'';document.getElementById('p-couleur').value=p.couleur;document.getElementById('p-edit-id').value=ref;}
   }
+  if(id==='modal-exemple'){
+    fillPilierSelect('ex-pilier','');
+    if(mode==='new'){document.getElementById('mex-title').textContent='Nouvel exemple visuel 💾';['ex-url','ex-note'].forEach(f=>document.getElementById(f).value='');document.getElementById('ex-pilier').value='';document.getElementById('ex-edit-id').value='';}
+    else{const e=D.exemples.find(x=>x.id===ref);document.getElementById('mex-title').textContent='Modifier';document.getElementById('ex-url').value=e.url||'';document.getElementById('ex-note').value=e.note||'';document.getElementById('ex-pilier').value=e.pilier||'';document.getElementById('ex-edit-id').value=ref;}
+  }
+  if(id==='modal-prospection'){
+    if(mode==='new'){document.getElementById('mpr-title').textContent='Nouveau compte cible 🎯';['pr-compte','pr-note'].forEach(f=>document.getElementById(f).value='');document.getElementById('pr-actif').checked=true;document.getElementById('pr-edit-id').value='';}
+    else{const c=D.prospection.find(x=>x.id===ref);document.getElementById('mpr-title').textContent='Modifier';document.getElementById('pr-compte').value=c.compte||'';document.getElementById('pr-note').value=c.note||'';document.getElementById('pr-actif').checked=c.actif!==false;document.getElementById('pr-edit-id').value=ref;}
+  }
   document.getElementById(id).classList.add('open');
 }
 function closeModal(id){document.getElementById(id).classList.remove('open');}
@@ -1730,6 +1901,35 @@ function saveInspo(){
   closeModal('modal-inspo');saveAll().then(()=>renderInspo());
 }
 function deleteInspo(id){if(!confirm('Supprimer ?'))return;D.inspirations=D.inspirations.filter(x=>x.id!==id);saveAll().then(()=>renderInspo());}
+
+// ── EXEMPLES VISUELS ──
+function saveExemple(){
+  if(!D.exemples)D.exemples=[];
+  const url=document.getElementById('ex-url').value.trim();
+  if(!url){toast('Ajoute un lien 💾');return;}
+  const editId=document.getElementById('ex-edit-id').value;
+  const obj={id:editId||'EX'+Date.now().toString().slice(-5),url:url,note:document.getElementById('ex-note').value.trim(),pilier:document.getElementById('ex-pilier').value,fait:editId?(D.exemples.find(x=>x.id===editId)||{}).fait||false:false};
+  if(editId){const i=D.exemples.findIndex(x=>x.id===editId);if(i>=0)D.exemples[i]=obj;}else D.exemples.push(obj);
+  closeModal('modal-exemple');saveAll().then(()=>renderInspo());
+}
+function toggleExempleFait(id){const e=D.exemples.find(x=>x.id===id);if(!e)return;e.fait=!e.fait;saveAll().then(()=>renderInspo());}
+function deleteExemple(id){if(!confirm('Supprimer ?'))return;D.exemples=D.exemples.filter(x=>x.id!==id);saveAll().then(()=>renderInspo());}
+function viderExemples(){const n=(D.exemples||[]).length;if(!n){toast('Aucun exemple à vider');return;}if(!confirm(`Vider les ${n} exemple(s) ?\n\nCette action est irréversible. Pense à exporter en CSV avant si tu veux garder une copie.`))return;D.exemples=[];saveAll().then(()=>renderInspo());}
+
+// ── COMPTES PROSPECTION ──
+function saveProspection(){
+  if(!D.prospection)D.prospection=[];
+  let compte=document.getElementById('pr-compte').value.trim();
+  if(!compte){toast('Ajoute un compte 🎯');return;}
+  if(!compte.startsWith('@')&&!compte.startsWith('http'))compte='@'+compte;
+  const editId=document.getElementById('pr-edit-id').value;
+  const obj={id:editId||'PR'+Date.now().toString().slice(-5),compte:compte,note:document.getElementById('pr-note').value.trim(),actif:document.getElementById('pr-actif').checked};
+  if(editId){const i=D.prospection.findIndex(x=>x.id===editId);if(i>=0)D.prospection[i]=obj;}else D.prospection.push(obj);
+  closeModal('modal-prospection');saveAll().then(()=>renderInspo());
+}
+function toggleProspectionActif(id){const c=D.prospection.find(x=>x.id===id);if(!c)return;c.actif=c.actif===false?true:false;saveAll().then(()=>renderInspo());}
+function deleteProspection(id){if(!confirm('Supprimer ?'))return;D.prospection=D.prospection.filter(x=>x.id!==id);saveAll().then(()=>renderInspo());}
+function viderProspection(){const n=(D.prospection||[]).length;if(!n){toast('Aucun compte à vider');return;}if(!confirm(`Vider les ${n} compte(s) cible(s) ?\n\nCette action est irréversible. Pense à exporter en CSV avant si tu veux garder une copie.`))return;D.prospection=[];saveAll().then(()=>renderInspo());}
 
 function saveIdee(){
   const editId=document.getElementById('id-edit-id').value;
