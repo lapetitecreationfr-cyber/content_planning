@@ -1299,17 +1299,20 @@ function renderInspo(){
         <button class="btn btn-danger btn-sm btn-icon" onclick="deleteInspo('${i.id}')">✕</button>
       </div>
     </div>`).join('');
-  const planifiees=new Set(D.contenus.map(c=>c.ideeSrc).filter(Boolean));
+  const planifieMap={};
+  D.contenus.forEach(c=>{if(c.ideeSrc&&!planifieMap[c.ideeSrc])planifieMap[c.ideeSrc]=c.id;});
   document.getElementById('idees-grid').innerHTML=D.idees.map(id=>{
     const p=getPilier(id.pilier);
-    const done=planifiees.has(id.id);
+    const cid=planifieMap[id.id];const done=!!cid;
     return `<div class="idee-card"${done?' style="border-color:var(--sage);background:var(--parchment)"':''}>
       <div class="idee-titre">${done?'<span title="Déjà planifié" style="color:var(--sage)">✓ </span>':''}${id.titre}</div>
       <div class="idee-hook">🎬 ${id.hook||'—'}</div>
       <div class="idee-footer">
         <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap">${typeBadge(id.type)}<span class="badge" style="background:rgba(${hexToRgb(p.couleur)},0.2);color:var(--text-muted)">${p.emoji} ${p.nom}</span>${done?'<span class="badge" style="background:var(--sage);color:var(--white)">Planifié</span>':''}</div>
         <div style="display:flex;gap:5px">
-          <button class="btn ${done?'btn-outline':'btn-sage'} btn-sm" onclick="ideeToContenuDirect('${id.id}')">${done?'↻ Replanifier':'→ Planifier'}</button>
+          ${done
+            ?`<button class="btn btn-outline btn-sm" onclick="openModalContenu('${cid}')">→ Voir le contenu</button>`
+            :`<button class="btn btn-sage btn-sm" onclick="ideeToContenuDirect('${id.id}')">→ Planifier</button>`}
           <button class="btn btn-outline btn-sm btn-icon" onclick="openModal('modal-idee','edit','${id.id}')">✎</button>
           <button class="btn btn-danger btn-sm btn-icon" onclick="deleteIdee('${id.id}')">✕</button>
         </div>
@@ -1958,6 +1961,8 @@ function deleteIdee(id){if(!confirm('Supprimer ?'))return;D.idees=D.idees.filter
 function ideeToContenuDirect(id){
   const idea=D.idees.find(x=>x.id===id);
   if(!idea)return;
+  const existant=D.contenus.find(c=>c.ideeSrc===id);
+  if(existant){closeModal('modal-idee');openModalContenu(existant.id);toast('Idée déjà planifiée — ouverture du contenu');return;}
   closeModal('modal-idee');
   fillPilierSelect('c-pilier',idea.pilier);
   switchMTab(0);
