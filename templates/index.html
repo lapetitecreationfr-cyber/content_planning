@@ -1073,9 +1073,15 @@ function readCSV(input,cb){
   };
   reader.readAsText(f,'UTF-8');
 }
-function importReport(added,dup,vides){
-  if(!added){toast(`Rien importé${dup?` · ${dup} doublon(s)`:''}`);return false;}
-  toast(`${added} ligne(s) importée(s)${dup?` · ${dup} doublon(s) ignoré(s)`:''}${vides?` · ${vides} vide(s)`:''} ✨`);
+function importReport(added,dup,vides,updated){
+  updated=updated||0;
+  if(!added&&!updated){toast(`Rien importé${dup?` · ${dup} doublon(s)`:''}`);return false;}
+  const parts=[];
+  if(added)parts.push(`${added} ajout(s)`);
+  if(updated)parts.push(`${updated} mis à jour`);
+  if(dup)parts.push(`${dup} doublon(s) ignoré(s)`);
+  if(vides)parts.push(`${vides} vide(s)`);
+  toast(parts.join(' · ')+' ✨');
   return true;
 }
 function resolveType(v){
@@ -1180,6 +1186,12 @@ function renderKanban(){
 // ── LISTE ──
 let listeFilter='tous';
 
+function mergeChecklist(oldArr,newTexts){
+  return newTexts.map(t=>{
+    const ex=(oldArr||[]).find(o=>norm(o.texte)===norm(t));
+    return {texte:t,done:ex?!!ex.done:false};
+  });
+}
 function importContenusCSV(input){
   readCSV(input,(rows,head)=>{
     const iTitre=findCol(head,['titre','concept','hook','texte']);
@@ -1190,40 +1202,61 @@ function importContenusCSV(input){
           iPlan=findCol(head,['plan','photos','sequences']),iMateriel=findCol(head,['materiel','matériel','materiaux']),
           iVues=findCol(head,['vues']),iLikes=findCol(head,['likes']),iComs=findCol(head,['commentaires']),
           iSaves=findCol(head,['sauvegardes','saves']),iShares=findCol(head,['partages']),iPortee=findCol(head,['portee']);
-    const existants=new Set(D.contenus.map(c=>norm(c.titre)+'|'+(c.date||'')));
-    let added=0,dup=0,vides=0;
+    const idx={};
+    D.contenus.forEach((c,i)=>{const k=norm(c.titre)+'|'+(c.date||'');if(idx[k]===undefined)idx[k]=i;});
+    let added=0,updated=0,vides=0;
     rows.forEach((r,n)=>{
       const titre=(r[iTitre]||'').trim();
       if(!titre){vides++;return;}
       const date=iDate>=0?parseDateCSV(r[iDate]):'';
       const key=norm(titre)+'|'+date;
-      if(existants.has(key)){dup++;return;}
-      existants.add(key);
       const plan=iPlan>=0?(r[iPlan]||'').split(/\||\n/).map(s=>s.trim()).filter(Boolean):[];
       const materiel=iMateriel>=0?(r[iMateriel]||'').split(/\||\n/).map(s=>s.trim()).filter(Boolean):[];
-      D.contenus.push({
-        id:'C'+Date.now().toString().slice(-6)+n,
-        type:iType>=0?resolveType(r[iType]):'Reel',
-        pilier:resolvePilier(iPilier>=0?r[iPilier]:''),
-        titre:titre,
-        visual_hook:iVisual>=0?(r[iVisual]||'').trim():'',
-        date:date||new Date().toISOString().split('T')[0],
-        statut:iStatut>=0?resolveStatut(r[iStatut]):'Pas commencé',
-        notes:iNotes>=0?(r[iNotes]||'').trim():'',
-        legende:iLegende>=0?(r[iLegende]||'').trim():'',
-        cta:iCta>=0?(r[iCta]||'').trim():'',
-        shotlist:plan.map(t=>({texte:t,done:false})),
-        materiel:materiel.map(t=>({texte:t,done:false})),
-        vues:iVues>=0?(parseInt(r[iVues])||0):0,
-        likes:iLikes>=0?(parseInt(r[iLikes])||0):0,
-        commentaires:iComs>=0?(parseInt(r[iComs])||0):0,
-        sauvegardes:iSaves>=0?(parseInt(r[iSaves])||0):0,
-        partages:iShares>=0?(parseInt(r[iShares])||0):0,
-        portee:iPortee>=0?(parseInt(r[iPortee])||0):0
-      });
-      added++;
+      const has=i=>i>=0&&(r[i]||'').trim()!=='';
+      if(idx[key]!==undefined){
+        const c=D.contenus[idx[key]];
+        if(has(iType))c.type=resolveType(r[iType]);
+        if(has(iPilier))c.pilier=resolvePilier(r[iPilier]);
+        if(has(iVisual))c.visual_hook=(r[iVisual]||'').trim();
+        if(has(iStatut))c.statut=resolveStatut(r[iStatut]);
+        if(has(iNotes))c.notes=(r[iNotes]||'').trim();
+        if(has(iLegende))c.legende=(r[iLegende]||'').trim();
+        if(has(iCta))c.cta=(r[iCta]||'').trim();
+        if(plan.length)c.shotlist=mergeChecklist(c.shotlist,plan);
+        if(materiel.length)c.materiel=mergeChecklist(c.materiel,materiel);
+        if(has(iVues))c.vues=parseInt(r[iVues])||0;
+        if(has(iLikes))c.likes=parseInt(r[iLikes])||0;
+        if(has(iComs))c.commentaires=parseInt(r[iComs])||0;
+        if(has(iSaves))c.sauvegardes=parseInt(r[iSaves])||0;
+        if(has(iShares))c.partages=parseInt(r[iShares])||0;
+        if(has(iPortee))c.portee=parseInt(r[iPortee])||0;
+        updated++;
+      }else{
+        D.contenus.push({
+          id:'C'+Date.now().toString().slice(-6)+n,
+          type:iType>=0?resolveType(r[iType]):'Reel',
+          pilier:resolvePilier(iPilier>=0?r[iPilier]:''),
+          titre:titre,
+          visual_hook:iVisual>=0?(r[iVisual]||'').trim():'',
+          date:date||new Date().toISOString().split('T')[0],
+          statut:iStatut>=0?resolveStatut(r[iStatut]):'Pas commencé',
+          notes:iNotes>=0?(r[iNotes]||'').trim():'',
+          legende:iLegende>=0?(r[iLegende]||'').trim():'',
+          cta:iCta>=0?(r[iCta]||'').trim():'',
+          shotlist:plan.map(t=>({texte:t,done:false})),
+          materiel:materiel.map(t=>({texte:t,done:false})),
+          vues:iVues>=0?(parseInt(r[iVues])||0):0,
+          likes:iLikes>=0?(parseInt(r[iLikes])||0):0,
+          commentaires:iComs>=0?(parseInt(r[iComs])||0):0,
+          sauvegardes:iSaves>=0?(parseInt(r[iSaves])||0):0,
+          partages:iShares>=0?(parseInt(r[iShares])||0):0,
+          portee:iPortee>=0?(parseInt(r[iPortee])||0):0
+        });
+        idx[key]=D.contenus.length-1;
+        added++;
+      }
     });
-    if(importReport(added,dup,vides))saveAll().then(()=>renderAll());
+    if(importReport(added,0,vides,updated))saveAll().then(()=>renderAll());
   });
 }
 function exportContenusCSV(){
