@@ -526,7 +526,7 @@ tr:hover td{background:rgba(234,229,219,0.3);}
         <div class="form-group"><label>Portée 👁️</label><input type="number" id="s-portee" value="0"></div>
       </div>
     </div>
-    <input type="hidden" id="c-edit-id"><input type="hidden" id="c-date-preset">
+    <input type="hidden" id="c-edit-id"><input type="hidden" id="c-date-preset"><input type="hidden" id="c-idee-src">
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="closeModal('modal-contenu')">Annuler</button>
       <button class="btn btn-primary" onclick="saveContenu()">Enregistrer 🌸</button>
@@ -1299,15 +1299,17 @@ function renderInspo(){
         <button class="btn btn-danger btn-sm btn-icon" onclick="deleteInspo('${i.id}')">✕</button>
       </div>
     </div>`).join('');
+  const planifiees=new Set(D.contenus.map(c=>c.ideeSrc).filter(Boolean));
   document.getElementById('idees-grid').innerHTML=D.idees.map(id=>{
     const p=getPilier(id.pilier);
-    return `<div class="idee-card">
-      <div class="idee-titre">${id.titre}</div>
+    const done=planifiees.has(id.id);
+    return `<div class="idee-card"${done?' style="border-color:var(--sage);background:var(--parchment)"':''}>
+      <div class="idee-titre">${done?'<span title="Déjà planifié" style="color:var(--sage)">✓ </span>':''}${id.titre}</div>
       <div class="idee-hook">🎬 ${id.hook||'—'}</div>
       <div class="idee-footer">
-        <div style="display:flex;gap:5px;align-items:center">${typeBadge(id.type)}<span class="badge" style="background:rgba(${hexToRgb(p.couleur)},0.2);color:var(--text-muted)">${p.emoji} ${p.nom}</span></div>
+        <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap">${typeBadge(id.type)}<span class="badge" style="background:rgba(${hexToRgb(p.couleur)},0.2);color:var(--text-muted)">${p.emoji} ${p.nom}</span>${done?'<span class="badge" style="background:var(--sage);color:var(--white)">Planifié</span>':''}</div>
         <div style="display:flex;gap:5px">
-          <button class="btn btn-sage btn-sm" onclick="ideeToContenuDirect('${id.id}')">→ Planifier</button>
+          <button class="btn ${done?'btn-outline':'btn-sage'} btn-sm" onclick="ideeToContenuDirect('${id.id}')">${done?'↻ Replanifier':'→ Planifier'}</button>
           <button class="btn btn-outline btn-sm btn-icon" onclick="openModal('modal-idee','edit','${id.id}')">✎</button>
           <button class="btn btn-danger btn-sm btn-icon" onclick="deleteIdee('${id.id}')">✕</button>
         </div>
@@ -1735,6 +1737,7 @@ function openModalContenu(id,datePreset){
     document.getElementById('s-shares').value=c.partages||0;
     document.getElementById('s-portee').value=c.portee||0;
     document.getElementById('c-edit-id').value=id;
+    document.getElementById('c-idee-src').value=c.ideeSrc||'';
     shots=(c.shotlist||[]).map(s=>({texte:s.texte||'',done:!!s.done}));
     mats=(c.materiel||[]).map(m=>({texte:m.texte||'',done:!!m.done}));
   } else {
@@ -1744,6 +1747,7 @@ function openModalContenu(id,datePreset){
     document.getElementById('c-statut').value='Pas commencé';
     ['s-vues','s-likes','s-coms','s-saves','s-shares','s-portee'].forEach(f=>document.getElementById(f).value=0);
     document.getElementById('c-edit-id').value='';
+    document.getElementById('c-idee-src').value='';
     shots=[];
     mats=[];
     document.getElementById('c-date-preset').value=datePreset||'';
@@ -1863,7 +1867,8 @@ function saveContenu(){
     partages:parseInt(document.getElementById('s-shares').value)||0,
     portee:parseInt(document.getElementById('s-portee').value)||0,
     shotlist:shots.filter(s=>s.texte.trim()).map(s=>({texte:s.texte.trim(),done:!!s.done})),
-    materiel:mats.filter(m=>m.texte.trim()).map(m=>({texte:m.texte.trim(),done:!!m.done}))
+    materiel:mats.filter(m=>m.texte.trim()).map(m=>({texte:m.texte.trim(),done:!!m.done})),
+    ideeSrc:document.getElementById('c-idee-src').value||''
   };
   if(!obj.titre){toast('Titre requis');return;}
   if(editId){const i=D.contenus.findIndex(x=>x.id===editId);if(i>=0)D.contenus[i]=obj;}
@@ -1965,6 +1970,8 @@ function ideeToContenuDirect(id){
   document.getElementById('c-statut').value='Pas commencé';
   document.getElementById('c-notes').value=idea.notes||'';
   document.getElementById('c-edit-id').value='';
+  document.getElementById('c-idee-src').value=id;
+  document.getElementById('c-existing-wrap').style.display='none';
   ['s-vues','s-likes','s-coms','s-saves','s-shares','s-portee'].forEach(f=>document.getElementById(f).value=0);
   shots=[];renderShots();
   mats=[];renderMats();
