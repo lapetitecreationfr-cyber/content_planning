@@ -214,6 +214,10 @@ tr:hover td{background:rgba(234,229,219,0.3);}
 .shot-del{background:var(--rose-light);color:var(--rose);border:1px solid var(--rose-mid);border-radius:8px;width:26px;height:26px;flex-shrink:0;cursor:pointer;font-size:11px;font-family:'Nunito',sans-serif;}
 .shot-progress{height:5px;background:var(--parchment);border-radius:3px;overflow:hidden;margin-bottom:12px;}
 .shot-progress>div{height:100%;background:var(--sage);border-radius:3px;transition:width .3s;}
+#inspo-pj-grid{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:6px;}
+.pj-thumb{position:relative;width:82px;height:82px;border-radius:9px;overflow:hidden;border:1px solid var(--border-md);}
+.pj-thumb img{width:100%;height:100%;object-fit:cover;cursor:zoom-in;display:block;}
+.pj-del{position:absolute;top:3px;right:3px;background:rgba(0,0,0,.55);color:#fff;border:none;border-radius:6px;width:20px;height:20px;font-size:10px;line-height:1;cursor:pointer;}
 .mini-prog{font-size:10px;font-weight:700;color:var(--sage);white-space:nowrap;}
 .mini-prog.todo{color:var(--text-hint);}
 
@@ -515,6 +519,12 @@ tr:hover td{background:rgba(234,229,219,0.3);}
       <div style="font-size:12px;color:var(--text-muted);font-style:italic;margin-bottom:10px">Coche ce que tu as déjà préparé avant le tournage.</div>
       <div id="mat-list"></div>
       <button class="kanban-add" style="margin-top:6px" onclick="addMat()">+ Ajouter du matériel</button>
+      <div style="border-top:1px solid var(--border);margin:18px 0 12px"></div>
+      <div style="font-family:'Cormorant Garamond',serif;font-size:17px;color:var(--text-muted);margin-bottom:6px">📎 Images d'inspiration</div>
+      <div style="font-size:12px;color:var(--text-muted);font-style:italic;margin-bottom:10px">Captures de réfs à reproduire (cadrage, lumière…). Redimensionnées automatiquement. Clique une image pour l'agrandir.</div>
+      <input type="file" id="inspo-pj-input" accept="image/*" multiple style="display:none" onchange="handleInspoFiles(this)">
+      <div id="inspo-pj-grid"></div>
+      <button class="kanban-add" style="margin-top:6px" onclick="document.getElementById('inspo-pj-input').click()">+ Ajouter des images</button>
     </div>
     <div id="mtab-stats" style="display:none">
       <div class="stat-input-grid">
@@ -1776,6 +1786,7 @@ function openModalContenu(id,datePreset){
     document.getElementById('c-idee-src').value=c.ideeSrc||'';
     shots=(c.shotlist||[]).map(s=>({texte:s.texte||'',done:!!s.done}));
     mats=(c.materiel||[]).map(m=>({texte:m.texte||'',done:!!m.done}));
+    inspoPJ=(c.inspoImages||[]).slice();
   } else {
     document.getElementById('mc-title').textContent='Nouveau contenu 🌸';
     ['c-titre','c-visual','c-legende','c-cta','c-notes'].forEach(f=>document.getElementById(f).value='');
@@ -1786,6 +1797,7 @@ function openModalContenu(id,datePreset){
     document.getElementById('c-idee-src').value='';
     shots=[];
     mats=[];
+    inspoPJ=[];
     document.getElementById('c-date-preset').value=datePreset||'';
     const sel=document.getElementById('c-existing');
     const opts=D.contenus.slice().sort((a,b)=>(a.date||'').localeCompare(b.date||'')||(a.titre||'').localeCompare(b.titre||''));
@@ -1797,7 +1809,7 @@ function openModalContenu(id,datePreset){
     sel.value='';
     document.getElementById('c-existing-wrap').style.display='';
   }
-  renderShots();renderMats();
+  renderShots();renderMats();renderInspoPJ();
   document.getElementById('modal-contenu').classList.add('open');
 }
 function pickExistingContenu(sel){
@@ -1820,6 +1832,7 @@ function switchMTab(i){
 
 // ── PLAN / SHOT LIST ──
 let shots=[];
+let inspoPJ=[];
 function planConfig(){
   const t=document.getElementById('c-type').value;
   if(t==='Carrousel')return{tab:'📸 Photos',add:'+ Ajouter une photo',ph:'ex: Flat lay matières, lumière du matin',hint:'Une ligne = une slide du carrousel. Coche au fur et à mesure du shooting.'};
@@ -1855,6 +1868,43 @@ function addShot(){
 }
 function toggleShot(i){shots[i].done=!shots[i].done;renderShots();}
 function delShot(i){shots.splice(i,1);renderShots();}
+
+function fileToCompressedDataURL(file,maxW,quality){
+  return new Promise((resolve,reject)=>{
+    const rd=new FileReader();
+    rd.onload=()=>{const img=new Image();img.onload=()=>{
+      let w=img.width,h=img.height;
+      if(w>maxW){h=Math.round(h*maxW/w);w=maxW;}
+      const cv=document.createElement('canvas');cv.width=w;cv.height=h;
+      cv.getContext('2d').drawImage(img,0,0,w,h);
+      resolve(cv.toDataURL('image/jpeg',quality));
+    };img.onerror=reject;img.src=rd.result;};
+    rd.onerror=reject;rd.readAsDataURL(file);
+  });
+}
+async function handleInspoFiles(input){
+  const files=[...input.files];input.value='';
+  let ok=0;
+  for(const f of files){
+    if(!f.type.startsWith('image/'))continue;
+    try{inspoPJ.push(await fileToCompressedDataURL(f,900,0.72));ok++;}catch(e){}
+  }
+  renderInspoPJ();
+  if(ok)toast(ok+' image(s) ajoutée(s) — pense à enregistrer 💾');
+}
+function renderInspoPJ(){
+  const el=document.getElementById('inspo-pj-grid');if(!el)return;
+  el.innerHTML=inspoPJ.map((d,i)=>`<div class="pj-thumb"><img src="${d}" onclick="openLightbox(${i})"><button class="pj-del" onclick="delInspoPJ(${i})">✕</button></div>`).join('');
+}
+function delInspoPJ(i){inspoPJ.splice(i,1);renderInspoPJ();}
+function openLightbox(i){
+  let ov=document.getElementById('pj-lightbox');
+  if(!ov){ov=document.createElement('div');ov.id='pj-lightbox';ov.onclick=()=>{ov.style.display='none';};
+    ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.82);display:none;align-items:center;justify-content:center;z-index:9999;padding:24px;cursor:zoom-out';
+    ov.innerHTML='<img style="max-width:95%;max-height:95%;border-radius:10px;box-shadow:0 8px 40px rgba(0,0,0,.4)">';
+    document.body.appendChild(ov);}
+  ov.querySelector('img').src=inspoPJ[i];ov.style.display='flex';
+}
 
 // ── MATÉRIEL ──
 let mats=[];
@@ -1904,6 +1954,7 @@ function saveContenu(){
     portee:parseInt(document.getElementById('s-portee').value)||0,
     shotlist:shots.filter(s=>s.texte.trim()).map(s=>({texte:s.texte.trim(),done:!!s.done})),
     materiel:mats.filter(m=>m.texte.trim()).map(m=>({texte:m.texte.trim(),done:!!m.done})),
+    inspoImages:inspoPJ.slice(),
     ideeSrc:document.getElementById('c-idee-src').value||''
   };
   if(!obj.titre){toast('Titre requis');return;}
