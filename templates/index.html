@@ -493,7 +493,7 @@ tr:hover td{background:rgba(234,229,219,0.3);}
       <div class="form-group"><label>Légende</label><textarea id="c-legende" rows="4" placeholder="La légende finale à publier..."></textarea></div>
       <div class="form-group"><label>CTA</label><input type="text" id="c-cta" placeholder="ex: enregistre ce post, dis-moi en commentaire..."></div>
       <div class="form-row">
-        <div class="form-group"><label>Date de publication</label><input type="date" id="c-date"></div>
+        <div class="form-group"><label>Date de publication <span style="font-weight:400;color:var(--text-hint)">(optionnelle)</span></label><div style="display:flex;gap:6px;align-items:center"><input type="date" id="c-date" style="flex:1"><button type="button" class="btn btn-outline btn-sm" style="white-space:nowrap" onclick="document.getElementById('c-date').value=''">Non planifié</button></div></div>
         <div class="form-group"><label>Statut</label>
           <select id="c-statut">
             <option value="Pas commencé">Pas commencé</option>
@@ -1023,7 +1023,8 @@ function fmtDate(d){if(!d)return '—';const dt=new Date(d);return dt.toLocaleDa
 function hexToRgb(hex){hex=hex.trim();return `${parseInt(hex.slice(1,3),16)},${parseInt(hex.slice(3,5),16)},${parseInt(hex.slice(5,7),16)}`;}
 function typeBadge(t){const m={'Reel':'badge-reel','Story':'badge-story','Carrousel':'badge-carrousel','Post':'badge-amber'};return `<span class="badge ${m[t]||'badge-reel'}">${t}</span>`;}
 function statutBadge(s){const m={'Pas commencé':'stat-pasc','Prepping':'stat-prepping','Filming':'stat-filming','Edited':'stat-edited','Finalized':'stat-finalized','Posting':'stat-posting'};return `<span class="badge ${m[s]||'stat-pasc'}">${s}</span>`;}
-function sortedContenus(){return [...D.contenus].sort((a,b)=>new Date(a.date)-new Date(b.date));}
+function dKey(c){return c.date||'9999-99-99';} // sans date = en dernier
+function sortedContenus(){return [...D.contenus].sort((a,b)=>dKey(a).localeCompare(dKey(b)));}
 function numFmt(n){if(!n)return '—';if(n>=1000)return (n/1000).toFixed(1)+'k';return n;}
 function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function norm(s){return String(s==null?'':s).trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');}
@@ -1177,7 +1178,7 @@ const STATUTS=['Pas commencé','Prepping','Filming','Edited','Finalized','Postin
 const STATUT_COLORS={'Pas commencé':'#9a9a9a','Prepping':'#8a7a5a','Filming':'#5a7ac9','Edited':'#c95a8a','Finalized':'#4ac94a','Posting':'#8a4ac9'};
 function renderKanban(){
   document.getElementById('kanban-board').innerHTML=STATUTS.map(s=>{
-    const cards=D.contenus.filter(c=>c.statut===s).sort((a,b)=>new Date(a.date)-new Date(b.date));
+    const cards=D.contenus.filter(c=>c.statut===s).sort((a,b)=>dKey(a).localeCompare(dKey(b)));
     return `<div class="kanban-col">
       <div class="kanban-col-header">
         <span class="kanban-col-title" style="color:${STATUT_COLORS[s]}">${s}</span>
@@ -1186,7 +1187,7 @@ function renderKanban(){
       ${cards.map(c=>{const p=getPilier(c.pilier);return `<div class="kanban-card" onclick="openModalContenu('${c.id}')">
         <div class="kanban-card-type" style="color:${p.couleur}">${p.emoji} ${p.nom}</div>
         <div class="kanban-card-titre">${c.titre}</div>
-        <div class="kanban-card-footer">${typeBadge(c.type)}<span style="display:flex;gap:6px;align-items:center">${shotProgress(c)}<span class="kanban-card-date">${fmtDate(c.date)}</span></span></div>
+        <div class="kanban-card-footer">${typeBadge(c.type)}<span style="display:flex;gap:6px;align-items:center">${shotProgress(c)}<span class="kanban-card-date">${c.date?fmtDate(c.date):'Non planifié'}</span></span></div>
       </div>`;}).join('')}
       <button class="kanban-add" onclick="openModalContenuStatut('${s}')">+ Ajouter</button>
     </div>`;
@@ -1248,7 +1249,7 @@ function importContenusCSV(input){
           pilier:resolvePilier(iPilier>=0?r[iPilier]:''),
           titre:titre,
           visual_hook:iVisual>=0?(r[iVisual]||'').trim():'',
-          date:date||new Date().toISOString().split('T')[0],
+          date:date||'',
           statut:iStatut>=0?resolveStatut(r[iStatut]):'Pas commencé',
           notes:iNotes>=0?(r[iNotes]||'').trim():'',
           legende:iLegende>=0?(r[iLegende]||'').trim():'',
@@ -1684,7 +1685,7 @@ function renderStats(){
     <div class="metric mauve" data-emoji="💫"><div class="metric-label">Taux engagement</div><div class="metric-value">${engRate}%</div><div class="metric-sub">(likes+coms+saves+shares)/vues</div></div>`;
 
   // Charts
-  const chartData=withStats.sort((a,b)=>new Date(a.date)-new Date(b.date)).slice(-10);
+  const chartData=withStats.sort((a,b)=>(a.date||'').localeCompare(b.date||'')).slice(-10);
   const maxVues=Math.max(...chartData.map(c=>c.vues),1);
   const maxSaves=Math.max(...chartData.map(c=>c.sauvegardes),1);
   const p=getPilier(statFilter==='tous'?null:statFilter);
@@ -1721,7 +1722,7 @@ function renderStats(){
     </div>`).join('')||'<div style="color:var(--text-hint);font-size:12px;padding:8px">Pas encore de données</div>';
 
   // Stats table
-  document.getElementById('stats-body').innerHTML=D.contenus.filter(c=>statFilter==='tous'||c.pilier===statFilter).sort((a,b)=>new Date(b.date)-new Date(a.date)).map(c=>`
+  document.getElementById('stats-body').innerHTML=D.contenus.filter(c=>statFilter==='tous'||c.pilier===statFilter).sort((a,b)=>(b.date||'').localeCompare(a.date||'')).map(c=>`
     <tr>
       <td style="max-width:250px;font-weight:500;font-size:12.5px">${c.titre.substring(0,50)}${c.titre.length>50?'...':''}</td>
       <td>${fmtDate(c.date)}</td>
@@ -1790,7 +1791,7 @@ function openModalContenu(id,datePreset){
   } else {
     document.getElementById('mc-title').textContent='Nouveau contenu 🌸';
     ['c-titre','c-visual','c-legende','c-cta','c-notes'].forEach(f=>document.getElementById(f).value='');
-    document.getElementById('c-date').value=datePreset||new Date().toISOString().split('T')[0];
+    document.getElementById('c-date').value=datePreset||'';
     document.getElementById('c-statut').value='Pas commencé';
     ['s-vues','s-likes','s-coms','s-saves','s-shares','s-portee'].forEach(f=>document.getElementById(f).value=0);
     document.getElementById('c-edit-id').value='';
@@ -2055,7 +2056,7 @@ function ideeToContenuDirect(id){
   document.getElementById('c-pilier').value=idea.pilier;
   document.getElementById('c-titre').value=idea.titre;
   document.getElementById('c-visual').value=idea.hook||'';
-  document.getElementById('c-date').value=new Date().toISOString().split('T')[0];
+  document.getElementById('c-date').value='';
   document.getElementById('c-statut').value='Pas commencé';
   document.getElementById('c-notes').value=idea.notes||'';
   document.getElementById('c-edit-id').value='';
